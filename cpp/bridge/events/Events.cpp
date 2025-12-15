@@ -171,19 +171,6 @@ namespace margelo::nitro::mavlink
     disconnectListeners.erase(token);
   }
 
-  // Logging events
-  double HybirdMAVLink::onLogging(const std::function<void(const LoggingEvent&)>& listener)
-  {
-    double token = nextToken++;
-    loggingListeners[token] = listener;
-    return token;
-  }
-
-  void HybirdMAVLink::offLogging(double token)
-  {
-    loggingListeners.erase(token);
-  }
-
   // Camera events
   double HybirdMAVLink::onCameraStatus(const std::function<void(const CameraStatusEvent&)>& listener)
   {
