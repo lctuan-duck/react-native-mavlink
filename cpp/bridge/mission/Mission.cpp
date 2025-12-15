@@ -49,7 +49,8 @@ namespace margelo::nitro::mavlink
         1,  // target_system
         1,  // target_component
         static_cast<uint16_t>(count),
-        MAV_MISSION_TYPE_MISSION
+        MAV_MISSION_TYPE_MISSION,
+        0   // opaque_id
       );
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
@@ -156,19 +157,15 @@ namespace margelo::nitro::mavlink
   // Upload multiple mission items (auto state machine)
   std::shared_ptr<Promise<void>> HybirdMAVLink::setMissionUpload(const std::vector<MissionItemInt>& items)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    if (items.empty()) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Mission items list is empty")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, items]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
+      if (items.empty()) {
+        throw std::runtime_error("Mission items list is empty");
+      }
+      
       // First send mission count
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
@@ -177,34 +174,27 @@ namespace margelo::nitro::mavlink
         255, 190, &msg,
         1, 1,
         static_cast<uint16_t>(items.size()),
-        MAV_MISSION_TYPE_MISSION
+        MAV_MISSION_TYPE_MISSION,
+        0  // opaque_id
       );
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        // TODO: Implement state machine to send items one by one upon receiving MISSION_REQUEST
-        // For now, just resolve immediately
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to initiate mission upload")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to initiate mission upload");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+      
+      // TODO: Implement state machine to send items one by one upon receiving MISSION_REQUEST
+    });
   }
 
   // Enable/disable auto mission upload
   std::shared_ptr<Promise<void>> HybirdMAVLink::enableAutoMissionUpload(bool enable)
   {
-    auto promise = Promise<void>::async();
-    
-    // TODO: Store flag and use in mission upload logic
-    promise->resolve();
-    
-    return promise;
+    return Promise<void>::async([this, enable]() {
+      // TODO: Store flag and use in mission upload logic
+      (void)enable; // Suppress unused parameter warning
+    });
   }
 
   // Mission event listeners

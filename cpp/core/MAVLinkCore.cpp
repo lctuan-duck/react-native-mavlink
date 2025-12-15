@@ -334,8 +334,15 @@ bool MAVLinkCore::startUDP(const UdpOptions& options) {
         return false;
     }
     
-    impl_->udpTransport = std::make_unique<UDPTransport>(options.port, options.host);
-    impl_->udpTransport->setRemote(options.remoteHost, options.remotePort);
+    // Extract optional values with defaults
+    std::string host = options.host.value_or("0.0.0.0");
+    std::string remoteHost = options.remoteHost.value_or("");
+    double remotePort = options.remotePort.value_or(0);
+    
+    impl_->udpTransport = std::make_unique<UDPTransport>(static_cast<int>(options.port), host);
+    if (!remoteHost.empty() && remotePort > 0) {
+        impl_->udpTransport->setRemote(remoteHost, static_cast<int>(remotePort));
+    }
     
     impl_->udpTransport->setDataCallback([this](const std::vector<uint8_t>& data) {
         impl_->handleIncomingData(data);
@@ -369,7 +376,7 @@ bool MAVLinkCore::startTCP(const TcpOptions& options) {
         return false;
     }
     
-    impl_->tcpTransport = std::make_unique<TCPTransport>(options.host, options.port);
+    impl_->tcpTransport = std::make_unique<TCPTransport>(options.host, static_cast<int>(options.port));
     
     impl_->tcpTransport->setDataCallback([this](const std::vector<uint8_t>& data) {
         impl_->handleIncomingData(data);
