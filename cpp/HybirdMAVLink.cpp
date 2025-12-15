@@ -369,17 +369,17 @@ namespace margelo::nitro::mavlink
     
     // Camera/Gimbal events (stub handlers - can be extended with actual message parsing)
     // These are less commonly used, so keeping as stubs for now
-    core_->onEvent("cameraStatus", [this](const std::string&, const std::any&) {
+    core_->onEvent("cameraStatus", [](const std::string&, const std::any&) {
       // Camera status message parsing not yet implemented
       // User can extend by adding CAMERA_INFORMATION, CAMERA_SETTINGS parsing
     });
     
-    core_->onEvent("cameraCaptureStatus", [this](const std::string&, const std::any&) {
+    core_->onEvent("cameraCaptureStatus", [](const std::string&, const std::any&) {
       // Camera capture status parsing not yet implemented
       // User can extend by adding CAMERA_CAPTURE_STATUS parsing
     });
     
-    core_->onEvent("gimbalDeviceAttitudeStatus", [this](const std::string&, const std::any&) {
+    core_->onEvent("gimbalDeviceAttitudeStatus", [](const std::string&, const std::any&) {
       // Gimbal attitude parsing not yet implemented
       // User can extend by adding GIMBAL_DEVICE_ATTITUDE_STATUS parsing
     });
