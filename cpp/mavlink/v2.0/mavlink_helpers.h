@@ -293,6 +293,30 @@ MAVLINK_HELPER uint16_t mavlink_finalize_message_buffer(mavlink_message_t* msg, 
 	return msg->len + header_len + 2 + signature_len;
 }
 
+/**
+ * @brief Finalize a MAVLink message with automatic CRC lookup (6-parameter overload)
+ *
+ * This overload automatically looks up the crc_extra value from the message entry table.
+ * Used by generated MAVLink message pack functions that don't pass crc_extra explicitly.
+ * This is a workaround for MAVLink v2.0 code generator bug where message pack functions
+ * don't pass the crc_extra parameter.
+ *
+ * @param msg Message to finalize
+ * @param system_id Id of the sending (this) system, 1-127
+ * @param component_id Id of the sending component
+ * @param status MAVLink status structure
+ * @param min_length Minimum payload length
+ * @param length Actual payload length
+ * @return Total packet length
+ */
+static inline uint16_t mavlink_finalize_message_buffer(mavlink_message_t* msg, uint8_t system_id, uint8_t component_id,
+			      mavlink_status_t* status, uint8_t min_length, uint8_t length)
+{
+	// Lookup CRC from message entry table using message ID
+	const mavlink_msg_entry_t *entry = mavlink_get_msg_entry(msg->msgid);
+	uint8_t crc_extra = entry ? entry->crc_extra : 0;
+	
+	// Forward to the 7-parameter version with looked-up CRC
 MAVLINK_HELPER uint16_t mavlink_finalize_message_chan(mavlink_message_t* msg, uint8_t system_id, uint8_t component_id,
 						      uint8_t chan, uint8_t min_length, uint8_t length, uint8_t crc_extra)
 {
