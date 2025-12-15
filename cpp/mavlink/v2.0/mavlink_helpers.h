@@ -293,6 +293,11 @@ MAVLINK_HELPER uint16_t mavlink_finalize_message_buffer(mavlink_message_t* msg, 
 	return msg->len + header_len + 2 + signature_len;
 }
 
+// Forward declaration for CRC lookup function (defined later in this file)
+#ifndef MAVLINK_GET_MSG_ENTRY
+MAVLINK_HELPER const mavlink_msg_entry_t *mavlink_get_msg_entry(uint32_t msgid);
+#endif
+
 /**
  * @brief Finalize a MAVLink message with automatic CRC lookup (6-parameter overload)
  *
@@ -317,6 +322,9 @@ static inline uint16_t mavlink_finalize_message_buffer(mavlink_message_t* msg, u
 	uint8_t crc_extra = entry ? entry->crc_extra : 0;
 	
 	// Forward to the 7-parameter version with looked-up CRC
+	return mavlink_finalize_message_buffer(msg, system_id, component_id, status, min_length, length, crc_extra);
+}
+
 MAVLINK_HELPER uint16_t mavlink_finalize_message_chan(mavlink_message_t* msg, uint8_t system_id, uint8_t component_id,
 						      uint8_t chan, uint8_t min_length, uint8_t length, uint8_t crc_extra)
 {
