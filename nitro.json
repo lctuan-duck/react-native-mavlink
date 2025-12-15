@@ -1,0 +1,23 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": [
+    "mavlink"
+  ],
+  "ios": {
+    "iosModuleName": "NitroMavlink"
+  },
+  "android": {
+    "androidNamespace": [
+      "mavlink"
+    ],
+    "androidCxxLibName": "NitroMavlink"
+  },
+  "autolinking": {
+    "MAVLink": {
+      "cpp": "MAVLink"
+    }
+  },
+  "ignorePaths": [
+    "**/node_modules"
+  ]
+}
