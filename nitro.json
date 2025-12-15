@@ -14,7 +14,7 @@
   },
   "autolinking": {
     "MAVLink": {
-      "cpp": "MAVLink"
+      "cpp": "HybirdMAVLink"
     }
   },
   "ignorePaths": [

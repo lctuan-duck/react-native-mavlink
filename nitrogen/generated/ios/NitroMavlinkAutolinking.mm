@@ -10,7 +10,7 @@
 
 #import <type_traits>
 
-#include "MAVLink.hpp"
+#include "HybirdMAVLink.hpp"
 
 @interface NitroMavlinkAutolinking : NSObject
 @end
@@ -24,10 +24,10 @@
   HybridObjectRegistry::registerHybridObjectConstructor(
     "MAVLink",
     []() -> std::shared_ptr<HybridObject> {
-      static_assert(std::is_default_constructible_v<MAVLink>,
-                    "The HybridObject \"MAVLink\" is not default-constructible! "
+      static_assert(std::is_default_constructible_v<HybirdMAVLink>,
+                    "The HybridObject \"HybirdMAVLink\" is not default-constructible! "
                     "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-      return std::make_shared<MAVLink>();
+      return std::make_shared<HybirdMAVLink>();
     }
   );
 }
