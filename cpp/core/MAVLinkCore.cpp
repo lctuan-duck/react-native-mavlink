@@ -4,6 +4,7 @@
 #include "../parser/MessageParser.hpp"
 #include "../telemetry/TelemetryManager.hpp"
 #include <memory>
+#include <map>
 
 namespace margelo::nitro::mavlink {
 

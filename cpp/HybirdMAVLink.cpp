@@ -388,7 +388,7 @@ namespace margelo::nitro::mavlink
   // Telemetry snapshot
   std::shared_ptr<Promise<std::variant<nitro::NullType, TelemetryEvent>>> HybirdMAVLink::getTelemetrySnapshot()
   {
-    auto promise = std::make_shared<Promise<std::variant<nitro::NullType, TelemetryEvent>>>();
+    auto promise = Promise<std::variant<nitro::NullType, TelemetryEvent>>::async();
     
     if (!core_) {
       promise->resolve(nitro::NullType{});

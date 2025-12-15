@@ -2,15 +2,16 @@
 #include "../../core/MAVLinkCore.hpp"
 #include "../../mavlink/v2.0/common/common.h"
 #include <NitroModules/Promise.hpp>
+#include <stdexcept>
 
 namespace margelo::nitro::mavlink
 {
   std::shared_ptr<Promise<void>> HybirdMAVLink::requestParams()
   {
-    auto promise = std::make_shared<Promise<void>>();
+    auto promise = Promise<void>::async();
     
     if (!core_) {
-      promise->reject("Core not initialized");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
       return promise;
     }
     
@@ -30,10 +31,10 @@ namespace margelo::nitro::mavlink
       if (core_->sendData(buffer, len)) {
         promise->resolve();
       } else {
-        promise->reject("Failed to send parameter request");
+        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send parameter request")));
       }
     } catch (const std::exception& e) {
-      promise->reject(std::string("requestParams failed: ") + e.what());
+      promise->reject(std::make_exception_ptr(e));
     }
     
     return promise;
@@ -41,10 +42,10 @@ namespace margelo::nitro::mavlink
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::setParam(const std::string& name, const std::variant<std::string, double>& value)
   {
-    auto promise = std::make_shared<Promise<void>>();
+    auto promise = Promise<void>::async();
     
     if (!core_) {
-      promise->reject("Core not initialized");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
       return promise;
     }
     
@@ -65,7 +66,7 @@ namespace margelo::nitro::mavlink
         try {
           param_value = std::stof(std::get<std::string>(value));
         } catch (...) {
-          promise->reject("Invalid parameter value");
+          promise->reject(std::make_exception_ptr(std::runtime_error("Invalid parameter value")));
           return promise;
         }
       }
@@ -85,10 +86,10 @@ namespace margelo::nitro::mavlink
       if (core_->sendData(buffer, len)) {
         promise->resolve();
       } else {
-        promise->reject("Failed to send parameter set");
+        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send parameter set")));
       }
     } catch (const std::exception& e) {
-      promise->reject(std::string("setParam failed: ") + e.what());
+      promise->reject(std::make_exception_ptr(e));
     }
     
     return promise;

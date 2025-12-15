@@ -1,19 +1,20 @@
 #include "../../HybirdMAVLink.hpp"
 #include "../../core/MAVLinkCore.hpp"
 #include <NitroModules/Promise.hpp>
+#include <stdexcept>
 
 namespace margelo::nitro::mavlink
 {
   std::shared_ptr<Promise<void>> HybirdMAVLink::startUdp(const UdpOptions& options)
   {
-    auto promise = std::make_shared<Promise<void>>();
+    auto promise = Promise<void>::async();
     
     if (!core_) {
-      promise->reject("Core not initialized");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
       return promise;
     }
     
-    MAVLinkCore::UdpOptions coreOpts;
+    UdpOptions coreOpts;
     coreOpts.port = static_cast<uint16_t>(options.port);
     coreOpts.host = options.host.has_value() ? *options.host : "0.0.0.0";
     coreOpts.remoteHost = options.remoteHost.has_value() ? *options.remoteHost : "";
@@ -22,7 +23,7 @@ namespace margelo::nitro::mavlink
     if (core_->startUDP(coreOpts)) {
       promise->resolve();
     } else {
-      promise->reject("Failed to start UDP");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Failed to start UDP")));
     }
     
     return promise;
@@ -30,10 +31,10 @@ namespace margelo::nitro::mavlink
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::stopUdp()
   {
-    auto promise = std::make_shared<Promise<void>>();
+    auto promise = Promise<void>::async();
     
     if (!core_) {
-      promise->reject("Core not initialized");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
       return promise;
     }
     
@@ -45,21 +46,21 @@ namespace margelo::nitro::mavlink
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::startTcp(const TcpOptions& options)
   {
-    auto promise = std::make_shared<Promise<void>>();
+    auto promise = Promise<void>::async();
     
     if (!core_) {
-      promise->reject("Core not initialized");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
       return promise;
     }
     
-    MAVLinkCore::TcpOptions coreOpts;
+    TcpOptions coreOpts;
     coreOpts.host = options.host;
     coreOpts.port = static_cast<uint16_t>(options.port);
     
     if (core_->startTCP(coreOpts)) {
       promise->resolve();
     } else {
-      promise->reject("Failed to start TCP");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Failed to start TCP")));
     }
     
     return promise;
@@ -67,10 +68,10 @@ namespace margelo::nitro::mavlink
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::stopTcp()
   {
-    auto promise = std::make_shared<Promise<void>>();
+    auto promise = Promise<void>::async();
     
     if (!core_) {
-      promise->reject("Core not initialized");
+      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
       return promise;
     }
     
