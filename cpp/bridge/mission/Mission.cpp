@@ -191,7 +191,7 @@ namespace margelo::nitro::mavlink
   // Enable/disable auto mission upload
   std::shared_ptr<Promise<void>> HybirdMAVLink::enableAutoMissionUpload(bool enable)
   {
-    return Promise<void>::async([this, enable]() {
+    return Promise<void>::async([enable]() {
       // TODO: Store flag and use in mission upload logic
       (void)enable; // Suppress unused parameter warning
     });
