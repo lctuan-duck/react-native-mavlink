@@ -5,7 +5,7 @@
 namespace margelo::nitro::mavlink
 {
   // Constructor & Destructor
-  HybirdMAVLink::HybirdMAVLink() : HybridMAVLinkSpec()
+  HybirdMAVLink::HybirdMAVLink() : HybridObject(TAG), HybridMAVLinkSpec() 
   {
     initCore();
   }
