@@ -53,7 +53,6 @@ React Native Nitro Module tích hợp MAVLink protocol cho ứng dụng GCS (Gro
 
 ## 📚 Documentation
 
-- **[CODE_ORGANIZATION.md](CODE_ORGANIZATION.md)** - Cấu trúc code và tổ chức folder
 - **[ARCHITECTURE_REFACTOR.md](ARCHITECTURE_REFACTOR.md)** - Chi tiết kiến trúc và design patterns
 - **[cpp/bridge/README.md](cpp/bridge/README.md)** - Bridge implementations documentation
 

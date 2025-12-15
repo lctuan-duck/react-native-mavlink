@@ -20,7 +20,6 @@ add_library(${PACKAGE_NAME} SHARED
         ../cpp/transport/TCPTransport.cpp
         ../cpp/parser/MessageParser.cpp
         ../cpp/telemetry/TelemetryManager.cpp
-        ../cpp/events/EventEmitter.cpp
 )
 
 # Add Nitrogen specs :)

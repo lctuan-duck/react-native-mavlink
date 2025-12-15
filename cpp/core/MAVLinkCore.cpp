@@ -3,7 +3,6 @@
 #include "../transport/TCPTransport.hpp"
 #include "../parser/MessageParser.hpp"
 #include "../telemetry/TelemetryManager.hpp"
-#include "../events/EventEmitter.hpp"
 #include <memory>
 
 namespace margelo::nitro::mavlink {
@@ -14,7 +13,6 @@ public:
     std::unique_ptr<TCPTransport> tcpTransport;
     std::unique_ptr<MessageParser> parser;
     std::unique_ptr<TelemetryManager> telemetry;
-    std::unique_ptr<EventEmitter> eventEmitter;
     
     RawDataCallback rawDataCallback;
     EventCallback eventCallback;
@@ -323,7 +321,6 @@ public:
 MAVLinkCore::MAVLinkCore() : impl_(std::make_unique<Impl>()) {
     impl_->parser = std::make_unique<MessageParser>();
     impl_->telemetry = std::make_unique<TelemetryManager>();
-    impl_->eventEmitter = std::make_unique<EventEmitter>();
 }
 
 MAVLinkCore::~MAVLinkCore() {

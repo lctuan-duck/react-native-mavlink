@@ -38,18 +38,19 @@
   },
   "keywords": [
     "react-native",
-    "nitro"
+    "nitro",
+    "mavlink"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrousavy/nitro.git"
+    "url": "git+https://github.com/lctuan-duck/react-native-mavlink.git"
   },
-  "author": "Marc Rousavy <me@mrousavy.com> (https://github.com/mrousavy)",
+  "author": "Le Cong Tuan <lctuan.dev@gmail.com> (https://github.com/lctuan-duck)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mrousavy/nitro/issues"
+    "url": "https://github.com/lctuan-duck/react-native-mavlink/issues"
   },
-  "homepage": "https://github.com/mrousavy/nitro#readme",
+  "homepage": "https://github.com/lctuan-duck/react-native-mavlink#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

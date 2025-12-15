@@ -13,7 +13,6 @@ namespace margelo::nitro::mavlink {
 class Transport;
 class MessageParser;
 class TelemetryManager;
-class EventEmitter;
 
 // Options structs (must match TypeScript spec)
 struct UdpOptions {
