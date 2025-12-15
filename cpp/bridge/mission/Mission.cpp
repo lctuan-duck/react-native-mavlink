@@ -1,7 +1,7 @@
 #include "../../HybirdMAVLink.hpp"
 #include <stdexcept>
 #include "../../core/MAVLinkCore.hpp"
-#include "../../mavlink/v2.0/common/common.h"
+#include "../../mavlink/v2.0/common/mavlink.h"
 #include <NitroModules/Promise.hpp>
 
 namespace margelo::nitro::mavlink
@@ -9,14 +9,11 @@ namespace margelo::nitro::mavlink
   // Request mission list from vehicle
   std::shared_ptr<Promise<void>> HybirdMAVLink::requestMissionList()
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -30,29 +27,20 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send mission request")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send mission request");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   // Send mission count to vehicle
   std::shared_ptr<Promise<void>> HybirdMAVLink::sendMissionCount(double count)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, count]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -66,29 +54,20 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send mission count")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send mission count");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   // Send individual mission item
   std::shared_ptr<Promise<void>> HybirdMAVLink::sendMissionItemInt(const MissionItemInt& item)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, item]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -116,29 +95,20 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send mission item")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send mission item");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   // Clear all missions
   std::shared_ptr<Promise<void>> HybirdMAVLink::clearAllMissions()
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -151,29 +121,20 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to clear missions")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to clear missions");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   // Set current mission item
   std::shared_ptr<Promise<void>> HybirdMAVLink::setCurrentMission(double seq)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, seq]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -186,16 +147,10 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to set current mission")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to set current mission");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   // Upload multiple mission items (auto state machine)

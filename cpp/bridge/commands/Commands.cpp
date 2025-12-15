@@ -1,6 +1,6 @@
 #include "../../HybirdMAVLink.hpp"
 #include "../../core/MAVLinkCore.hpp"
-#include "../../mavlink/v2.0/common/common.h"
+#include "../../mavlink/v2.0/common/mavlink.h"
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/ArrayBuffer.hpp>
 #include <stdexcept>
@@ -9,9 +9,7 @@ namespace margelo::nitro::mavlink
 {
   std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> HybirdMAVLink::encode(double messageId, const std::shared_ptr<ArrayBuffer>& payload)
   {
-    auto promise = Promise<std::shared_ptr<ArrayBuffer>>::async();
-    
-    try {
+    return Promise<std::shared_ptr<ArrayBuffer>>::async([messageId, payload]() {
       mavlink_message_t msg;
       
       // Initialize message with given ID
@@ -24,8 +22,7 @@ namespace margelo::nitro::mavlink
       size_t payloadSize = payload->size();
       
       if (payloadSize > MAVLINK_MAX_PAYLOAD_LEN) {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Payload too large")));
-        return promise;
+        throw std::runtime_error("Payload too large");
       }
       
       msg.len = static_cast<uint8_t>(payloadSize);
@@ -39,19 +36,13 @@ namespace margelo::nitro::mavlink
       auto result = ArrayBuffer::allocate(len);
       memcpy(result->data(), buffer, len);
       
-      promise->resolve(result);
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+      return result;
+    });
   }
 
   std::shared_ptr<Promise<DecodedMessage>> HybirdMAVLink::decode(const std::shared_ptr<ArrayBuffer>& raw)
   {
-    auto promise = Promise<DecodedMessage>::async();
-    
-    try {
+    return Promise<DecodedMessage>::async([raw]() {
       mavlink_message_t msg;
       mavlink_status_t status;
       
@@ -72,29 +63,21 @@ namespace margelo::nitro::mavlink
           memcpy(payloadBuffer->data(), msg.payload64, msg.len);
           result.payload = payloadBuffer;
           
-          promise->resolve(result);
-          return promise;
+          return result;
         }
       }
       
-      promise->reject(std::make_exception_ptr(std::runtime_error("No valid MAVLink message found")));
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+      throw std::runtime_error("No valid MAVLink message found");
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::sendCommandLong(const CommandLongArgs& args)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, args]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -124,28 +107,19 @@ namespace margelo::nitro::mavlink
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
       // Send via core
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send command")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send command");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::sendCommandInt(const CommandIntArgs& args)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, args]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -179,16 +153,10 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send command")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send command");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
 } // namespace margelo::nitro::mavlink

@@ -1,6 +1,6 @@
 #include "../../HybirdMAVLink.hpp"
 #include "../../core/MAVLinkCore.hpp"
-#include "../../mavlink/v2.0/common/common.h"
+#include "../../mavlink/v2.0/common/mavlink.h"
 #include <NitroModules/Promise.hpp>
 #include <stdexcept>
 
@@ -8,14 +8,11 @@ namespace margelo::nitro::mavlink
 {
   std::shared_ptr<Promise<void>> HybirdMAVLink::requestParams()
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -28,28 +25,19 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send parameter request")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send parameter request");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::setParam(const std::string& name, const std::variant<std::string, double>& value)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, name, value]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -66,8 +54,7 @@ namespace margelo::nitro::mavlink
         try {
           param_value = std::stof(std::get<std::string>(value));
         } catch (...) {
-          promise->reject(std::make_exception_ptr(std::runtime_error("Invalid parameter value")));
-          return promise;
+          throw std::runtime_error("Invalid parameter value");
         }
       }
       
@@ -83,16 +70,10 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send parameter set")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send parameter set");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
 } // namespace margelo::nitro::mavlink

@@ -6,6 +6,8 @@
 #include <vector>
 #include <any>
 #include "MAVLinkState.hpp"
+#include "UdpOptions.hpp"
+#include "TcpOptions.hpp"
 
 namespace margelo::nitro::mavlink {
 
@@ -14,20 +16,7 @@ class Transport;
 class MessageParser;
 class TelemetryManager;
 
-// Options structs (must match TypeScript spec)
-struct UdpOptions {
-    int port;              // Local bind port
-    std::string host;      // Local bind address (default '0.0.0.0')
-    std::string remoteHost; // Remote drone address to send to
-    int remotePort;        // Remote drone port to send to
-    int heartbeatTimeoutMs;
-};
-
-struct TcpOptions {
-    std::string host;
-    int port;
-    int heartbeatTimeoutMs;
-};
+// UdpOptions and TcpOptions are now imported from Nitrogen generated code
 
 class MAVLinkCore {
 public:

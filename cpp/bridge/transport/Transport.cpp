@@ -7,78 +7,60 @@ namespace margelo::nitro::mavlink
 {
   std::shared_ptr<Promise<void>> HybirdMAVLink::startUdp(const UdpOptions& options)
   {
-    auto promise = Promise<void>::async();
+    return Promise<void>::async([this, options]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
     
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    UdpOptions coreOpts;
-    coreOpts.port = static_cast<uint16_t>(options.port);
-    coreOpts.host = options.host.has_value() ? *options.host : "0.0.0.0";
-    coreOpts.remoteHost = options.remoteHost.has_value() ? *options.remoteHost : "";
-    coreOpts.remotePort = options.remotePort.has_value() ? static_cast<uint16_t>(*options.remotePort) : 0;
-    
-    if (core_->startUDP(coreOpts)) {
-      promise->resolve();
-    } else {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Failed to start UDP")));
-    }
-    
-    return promise;
+      UdpOptions coreOpts;
+      coreOpts.port = static_cast<uint16_t>(options.port);
+      coreOpts.host = options.host.has_value() ? *options.host : "0.0.0.0";
+      coreOpts.remoteHost = options.remoteHost.has_value() ? *options.remoteHost : "";
+      coreOpts.remotePort = options.remotePort.has_value() ? static_cast<uint16_t>(*options.remotePort) : 0;
+      
+      if (!core_->startUDP(coreOpts)) {
+        throw std::runtime_error("Failed to start UDP");
+      }
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::stopUdp()
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    core_->stopUDP();
-    promise->resolve();
-    
-    return promise;
+    return Promise<void>::async([this]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
+      core_->stopUDP();
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::startTcp(const TcpOptions& options)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    TcpOptions coreOpts;
-    coreOpts.host = options.host;
-    coreOpts.port = static_cast<uint16_t>(options.port);
-    
-    if (core_->startTCP(coreOpts)) {
-      promise->resolve();
-    } else {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Failed to start TCP")));
-    }
-    
-    return promise;
+    return Promise<void>::async([this, options]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
+      TcpOptions coreOpts;
+      coreOpts.host = options.host;
+      coreOpts.port = static_cast<uint16_t>(options.port);
+      
+      if (!core_->startTCP(coreOpts)) {
+        throw std::runtime_error("Failed to start TCP");
+      }
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::stopTcp()
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    core_->stopTCP();
-    promise->resolve();
-    
-    return promise;
+    return Promise<void>::async([this]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
+      core_->stopTCP();
+    });
   }
 
 } // namespace margelo::nitro::mavlink

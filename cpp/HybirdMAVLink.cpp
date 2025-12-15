@@ -388,14 +388,11 @@ namespace margelo::nitro::mavlink
   // Telemetry snapshot
   std::shared_ptr<Promise<std::variant<nitro::NullType, TelemetryEvent>>> HybirdMAVLink::getTelemetrySnapshot()
   {
-    auto promise = Promise<std::variant<nitro::NullType, TelemetryEvent>>::async();
-    
-    if (!core_) {
-      promise->resolve(nitro::NullType{});
-      return promise;
-    }
-    
-    try {
+    return Promise<std::variant<nitro::NullType, TelemetryEvent>>::async([this]() -> std::variant<nitro::NullType, TelemetryEvent> {
+      if (!core_) {
+        return nitro::NullType{};
+      }
+      
       auto state = core_->getTelemetrySnapshot();
       TelemetryEvent ev{};
       
@@ -428,12 +425,8 @@ namespace margelo::nitro::mavlink
         state.lastUpdate.time_since_epoch()
       ).count());
       
-      promise->resolve(ev);
-    } catch (const std::exception& e) {
-      promise->resolve(nitro::NullType{});
-    }
-    
-    return promise;
+      return ev;
+    });
   }
 
 } // namespace margelo::nitro::mavlink

@@ -1,21 +1,18 @@
 #include "../../HybirdMAVLink.hpp"
 #include <stdexcept>
 #include "../../core/MAVLinkCore.hpp"
-#include "../../mavlink/v2.0/common/common.h"
+#include "../../mavlink/v2.0/common/mavlink.h"
 #include <NitroModules/Promise.hpp>
 
 namespace margelo::nitro::mavlink
 {
   std::shared_ptr<Promise<void>> HybirdMAVLink::requestLogList()
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -30,28 +27,19 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send log list request")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send log list request");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::requestLogData(const LogDataRequestArgs& args)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, args]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -67,28 +55,19 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send log data request")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send log data request");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   std::shared_ptr<Promise<void>> HybirdMAVLink::requestDataTransmissionHandshake(const DataTransmissionHandshakeArgs& args)
   {
-    auto promise = Promise<void>::async();
-    
-    if (!core_) {
-      promise->reject(std::make_exception_ptr(std::runtime_error("Core not initialized")));
-      return promise;
-    }
-    
-    try {
+    return Promise<void>::async([this, args]() {
+      if (!core_) {
+        throw std::runtime_error("Core not initialized");
+      }
+      
       mavlink_message_t msg;
       uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
       
@@ -106,16 +85,10 @@ namespace margelo::nitro::mavlink
       
       uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
       
-      if (core_->sendData(buffer, len)) {
-        promise->resolve();
-      } else {
-        promise->reject(std::make_exception_ptr(std::runtime_error("Failed to send data transmission handshake")));
+      if (!core_->sendData(buffer, len)) {
+        throw std::runtime_error("Failed to send data transmission handshake");
       }
-    } catch (const std::exception& e) {
-      promise->reject(std::make_exception_ptr(e));
-    }
-    
-    return promise;
+    });
   }
 
   // Logging event listeners
