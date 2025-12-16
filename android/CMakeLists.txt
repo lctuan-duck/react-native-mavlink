@@ -26,7 +26,7 @@ include_directories(
         "../cpp/connection"
         "../cpp/commands"
         "../cpp/parameters"
-        "../cpp/MAVLink/v2.0"
+        "../cpp/mavlink/v2.0"
 )
 
 find_library(LOG_LIB log)
