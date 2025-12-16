@@ -87,7 +87,7 @@ void ParameterManager::handleParamValue(const mavlink_param_value_t& paramValue)
     std::memcpy(paramName, paramValue.param_id, MAVLINK_MSG_PARAM_VALUE_FIELD_PARAM_ID_LEN);
     std::string name(paramName);
     
-    // Convert param_value union to float based on type
+    // Convert param_value (float wire format) to actual float value based on type
     float value = paramUnionToFloat(paramValue.param_value, paramValue.param_type);
     
     // Update cache
@@ -291,8 +291,8 @@ void ParameterManager::sendParamSet(const std::string& name, float value, uint8_
     // Copy parameter name
     std::strncpy(paramSet.param_id, name.c_str(), MAVLINK_MSG_PARAM_SET_FIELD_PARAM_ID_LEN);
     
-    // Convert float to param_union based on type
-    floatToParamUnion(value, type, paramSet.param_value);
+    // Convert float value to param_value wire format based on type
+    paramSet.param_value = floatToParamUnion(value, type);
     
     mavlink_msg_param_set_encode(
         _connectionManager->getSystemId(),
@@ -308,7 +308,12 @@ void ParameterManager::sendParamSet(const std::string& name, float value, uint8_
 // Type Conversion Helpers
 // ============================================================================
 
-float ParameterManager::paramUnionToFloat(const mavlink_param_union_t& paramUnion, uint8_t type) {
+float ParameterManager::paramUnionToFloat(float paramValue, uint8_t type) {
+    // MAVLink sends all parameters as 4-byte float on the wire
+    // We need to reinterpret those bytes based on the actual type
+    mavlink_param_union_t paramUnion;
+    paramUnion.param_float = paramValue; // Copy the 4 bytes
+    
     switch (type) {
         case MAV_PARAM_TYPE_UINT8:
             return static_cast<float>(paramUnion.param_uint8);
@@ -328,7 +333,11 @@ float ParameterManager::paramUnionToFloat(const mavlink_param_union_t& paramUnio
     }
 }
 
-void ParameterManager::floatToParamUnion(float value, uint8_t type, mavlink_param_union_t& paramUnion) {
+float ParameterManager::floatToParamUnion(float value, uint8_t type) {
+    // MAVLink sends all parameters as 4-byte float on the wire
+    // We need to encode the typed value into those 4 bytes
+    mavlink_param_union_t paramUnion;
+    
     switch (type) {
         case MAV_PARAM_TYPE_UINT8:
             paramUnion.param_uint8 = static_cast<uint8_t>(std::round(value));
@@ -353,6 +362,9 @@ void ParameterManager::floatToParamUnion(float value, uint8_t type, mavlink_para
             paramUnion.param_float = value;
             break;
     }
+    
+    // Return the 4 bytes as float for wire transmission
+    return paramUnion.param_float;
 }
 
 } // namespace margelo::nitro::mavlink

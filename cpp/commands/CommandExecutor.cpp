@@ -5,7 +5,7 @@
 
 #include "CommandExecutor.hpp"
 #include "../connection/ConnectionManager.hpp"
-#include "../MAVLink/v2.0/common/mavlink.h"
+#include "../mavlink/v2.0/common/mavlink.h"
 #include <iostream>
 
 namespace margelo::nitro::mavlink {

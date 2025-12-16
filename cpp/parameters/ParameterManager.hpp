@@ -98,8 +98,8 @@ private:
     void sendParamSet(const std::string& name, float value, uint8_t type);
     
     // Type conversion helpers
-    static float paramUnionToFloat(const mavlink_param_union_t& paramUnion, uint8_t type);
-    static void floatToParamUnion(float value, uint8_t type, mavlink_param_union_t& paramUnion);
+    static float paramUnionToFloat(float paramValue, uint8_t type);
+    static float floatToParamUnion(float value, uint8_t type);
     
     // Thread safety
     mutable std::mutex _cacheMutex;
