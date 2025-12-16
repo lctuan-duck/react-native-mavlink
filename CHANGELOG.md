@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
+
 - TCP connection support
 - Serial connection support (platform-specific)
 - Full parameter management with caching
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Core Features
+
 - **MAVLink v2.0 Protocol Support**
   - Complete message parsing and generation
   - Standard dialect (common messages)
@@ -29,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sequence number tracking
 
 #### Connection Management
+
 - **UDP Connection** (fully implemented)
   - Non-blocking socket I/O
   - Dedicated send/receive threads
@@ -42,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `isConnected()` - Check connection status
 
 #### Vehicle State & Telemetry
+
 - **Thread-safe State Management**
   - Atomic variables for all telemetry
   - Mutex-protected operations
@@ -66,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - PX4 modes (MANUAL, POSCTL, AUTO_MISSION, etc.)
 
 #### Vehicle Control
+
 - **Basic Control**
   - `setArmed()` - Arm/disarm with force option
   - `setFlightMode()` - Change flight mode by name
@@ -83,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `emergencyStop()` - Emergency disarm
 
 #### Command Execution
+
 - **Reliable Command Delivery**
   - Automatic retry logic (3 attempts)
   - Timeout handling (3 seconds)
@@ -96,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - TIMEOUT - No response received
 
 #### Mission Management
+
 - **Mission Control**
   - `startMission()` - Start current mission
   - `setCurrentMissionItem()` - Jump to waypoint
@@ -107,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - MISSION_CURRENT (monitoring)
 
 #### Camera & Gimbal
+
 - **Camera Control**
   - `triggerCamera()` - Take photo
   - `startVideoRecording()` - Start video
@@ -115,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `setGimbalAttitudeParams()` - Control gimbal attitude (pitch, roll, yaw)
 
 #### Parameters
+
 - **Basic Parameter Operations**
   - `setParameter()` - Set parameter value
   - `setParameterValue()` - Set with ParameterSet object
@@ -122,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getParameter()` - Get parameter (stubbed, not fully implemented)
 
 #### Advanced Features
+
 - **Manual Control**
   - `sendManualControlInput()` - RC override
   - 4-axis control (pitch, roll, throttle, yaw)
@@ -134,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `sendCommandParams()` - Send raw MAVLink commands
 
 #### TypeScript API
+
 - **Type Definitions** (8 types)
   - `ConnectionConfig` - Connection configuration
   - `Coordinate` - GPS coordinate with altitude
@@ -150,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getTelemetry()` - Get all telemetry at once
 
 #### Build System
+
 - **CMake Configuration**
   - C++17 standard
   - Platform-specific linking (Winsock, pthread, Foundation)
@@ -157,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Nitro Modules integration
 
 #### Documentation
+
 - **Comprehensive Docs**
   - README.md - Full API reference
   - QUICKSTART.md - 5-minute getting started guide
@@ -165,6 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Example App - Complete working example
 
 #### Examples
+
 - **Sample Application**
   - Connection management UI
   - Real-time telemetry display
@@ -174,6 +188,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 
 #### Architecture
+
 - **Modular Design**
   - Separation of concerns (connection, state, commands)
   - Single responsibility principle
@@ -188,17 +203,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cached telemetry for instant reads
 
 #### Platform Support
+
 - **iOS**: Supported via Nitro Modules
-- **Android**: Supported via Nitro Modules  
+- **Android**: Supported via Nitro Modules
 - **Tested**: Windows (development), SITL
 
 #### Dependencies
+
 - react-native-nitro-modules: ^0.x.x
 - React Native: >= 0.70.0
 - CMake: >= 3.9.0
 - C++17 compiler
 
 ### Known Issues
+
 - TCP connection not implemented (stub only)
 - Serial connection not implemented (stub only)
 - Parameter get requires full implementation
@@ -207,13 +225,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Single vehicle only (no multi-vehicle support)
 
 ### Breaking Changes
+
 - None (initial release)
 
 ## Release Notes
 
 ### v0.0.1 - Initial Beta Release
 
-This is the first beta release of React Native MAVLink. The core functionality is complete and tested with ArduPilot SITL. 
+This is the first beta release of React Native MAVLink. The core functionality is complete and tested with ArduPilot SITL.
 
 **What's Working:**
 ✅ UDP connection to drone/SITL
@@ -235,11 +254,13 @@ This is the first beta release of React Native MAVLink. The core functionality i
 Tested with ArduPilot SITL (ArduCopter 4.x). Ready for integration testing with real hardware.
 
 **Installation:**
+
 ```bash
 npm install react-native-mavlink
 ```
 
 **Quick Start:**
+
 ```typescript
 import { mavlink, connectUDP, getTelemetry } from 'react-native-mavlink'
 

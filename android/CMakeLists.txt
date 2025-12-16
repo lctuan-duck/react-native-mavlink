@@ -9,7 +9,10 @@ set (CMAKE_CXX_STANDARD 20)
 add_library(${PACKAGE_NAME} SHARED
         src/main/cpp/cpp-adapter.cpp
         ../cpp/HybridMAVLink.cpp
-        # Add more source files here if needed
+        ../cpp/vehicle/VehicleState.cpp
+        ../cpp/connection/ConnectionManager.cpp
+        ../cpp/commands/CommandExecutor.cpp
+        ../cpp/parameters/ParameterManager.cpp
 )
 
 # Add Nitrogen specs :)
@@ -19,6 +22,11 @@ include(${CMAKE_SOURCE_DIR}/../nitrogen/generated/android/NitroMavlink+autolinki
 include_directories(
         "src/main/cpp"
         "../cpp"
+        "../cpp/vehicle"
+        "../cpp/connection"
+        "../cpp/commands"
+        "../cpp/parameters"
+        "../cpp/MAVLink/v2.0"
 )
 
 find_library(LOG_LIB log)

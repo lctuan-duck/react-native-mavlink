@@ -5,17 +5,20 @@ A comprehensive MAVLink library for React Native with full TypeScript support, e
 ## Features
 
 ✅ **Complete MAVLink v2.0 Protocol Support**
+
 - UDP, TCP, and Serial connections
 - Thread-safe message handling
 - Automatic retry and acknowledgment
 
 ✅ **Vehicle Control**
+
 - Arm/Disarm
 - Flight mode changes
 - Guided commands (Takeoff, Land, RTL, Goto)
 - Manual control input
 
 ✅ **Real-time Telemetry**
+
 - Position (GPS)
 - Attitude (Roll, Pitch, Yaw)
 - Velocity (Ground, Air, Climb)
@@ -23,11 +26,13 @@ A comprehensive MAVLink library for React Native with full TypeScript support, e
 - Flight status
 
 ✅ **Mission Management**
+
 - Start/Stop missions
 - Set current waypoint
 - Clear missions
 
 ✅ **Advanced Features**
+
 - Parameter get/set
 - Camera trigger
 - Gimbal control
@@ -100,7 +105,7 @@ await mavlink.guidedTakeoff(10)
 await mavlink.guidedGotoCoordinate({
   latitude: 47.3977,
   longitude: 8.5456,
-  altitude: 50
+  altitude: 50,
 })
 
 // Land
@@ -155,7 +160,7 @@ const config = {
   type: 1, // 0=SERIAL, 1=UDP, 2=TCP
   address: '127.0.0.1',
   port: 14550,
-  baudRate: 57600 // Only for serial
+  baudRate: 57600, // Only for serial
 }
 await mavlink.connectWithConfig(config)
 ```
@@ -237,7 +242,7 @@ Fly to specified GPS coordinate.
 await mavlink.guidedGotoCoordinate({
   latitude: 47.3977,
   longitude: 8.5456,
-  altitude: 50
+  altitude: 50,
 })
 ```
 
@@ -258,7 +263,7 @@ await mavlink.guidedOrbitParams({
   center: { latitude: 47.3977, longitude: 8.5456, altitude: 50 },
   radius: 20, // meters
   velocity: 2, // m/s
-  yawBehavior: 0 // 0=front to center, 1=hold initial
+  yawBehavior: 0, // 0=front to center, 1=hold initial
 })
 ```
 
@@ -336,7 +341,7 @@ Control gimbal attitude.
 await mavlink.setGimbalAttitudeParams({
   pitch: -45, // degrees
   roll: 0,
-  yaw: 0
+  yaw: 0,
 })
 ```
 
@@ -348,11 +353,11 @@ Send manual control input (for RC override).
 
 ```typescript
 mavlink.sendManualControlInput({
-  x: 0.5,  // pitch (-1 to 1)
-  y: 0.0,  // roll
-  z: 0.7,  // throttle
-  r: 0.0,  // yaw
-  buttons: 0
+  x: 0.5, // pitch (-1 to 1)
+  y: 0.0, // roll
+  z: 0.7, // throttle
+  r: 0.0, // yaw
+  buttons: 0,
 })
 ```
 
@@ -369,7 +374,7 @@ Request specific data stream at custom rate.
 ```typescript
 await mavlink.requestDataStreamParams({
   streamId: 0, // MAV_DATA_STREAM_ALL
-  rateHz: 10   // 10Hz
+  rateHz: 10, // 10Hz
 })
 ```
 
@@ -386,7 +391,7 @@ await mavlink.sendCommandParams({
   param4: 0,
   param5: 0,
   param6: 0,
-  param7: 0
+  param7: 0,
 })
 ```
 
@@ -455,6 +460,7 @@ await connectUDP('127.0.0.1', 14550)
 **Problem**: Cannot connect to vehicle
 
 **Solutions**:
+
 - Check IP address and port (default SITL: `127.0.0.1:14550`)
 - Verify firewall settings
 - For serial, check permissions: `sudo chmod 666 /dev/ttyUSB0`
@@ -465,6 +471,7 @@ await connectUDP('127.0.0.1', 14550)
 **Problem**: `mavlink.isConnected()` returns true but telemetry is 0
 
 **Solutions**:
+
 - Wait for HEARTBEAT message (up to 1 second)
 - Request data streams: `await mavlink.requestDataStreamParams({ streamId: 0, rateHz: 4 })`
 - Check if vehicle is sending messages (use MAVLink inspector)
@@ -474,6 +481,7 @@ await connectUDP('127.0.0.1', 14550)
 **Problem**: Commands return true but nothing happens
 
 **Solutions**:
+
 - Ensure vehicle is in correct mode (e.g., GUIDED for goto commands)
 - Check if vehicle is armed
 - Verify GPS lock (required for position commands)
@@ -490,6 +498,7 @@ MIT
 ## Credits
 
 Built with:
+
 - [React Native Nitro Modules](https://github.com/mrousavy/nitro)
 - [MAVLink Protocol](https://mavlink.io/)
 - Inspired by [QGroundControl](https://github.com/mavlink/qgroundcontrol)

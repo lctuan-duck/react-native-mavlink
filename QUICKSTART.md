@@ -84,7 +84,7 @@ await mavlink.guidedTakeoff(10)
 await mavlink.guidedGotoCoordinate({
   latitude: 47.3977,
   longitude: 8.5456,
-  altitude: 50
+  altitude: 50,
 })
 ```
 
@@ -146,10 +146,10 @@ export default function DroneControl() {
     try {
       // Switch to GUIDED
       await mavlink.setFlightMode('GUIDED')
-      
+
       // Arm
       await mavlink.setArmed(true, false)
-      
+
       // Takeoff
       const success = await mavlink.guidedTakeoff(10)
       Alert.alert(success ? 'Taking off!' : 'Takeoff failed')
@@ -222,6 +222,7 @@ cd ArduCopter
 ```
 
 This starts:
+
 - MAVLink on UDP port 14550 (for your app)
 - Console for monitoring
 - Map for visualization
@@ -237,24 +238,28 @@ Now you can test all commands safely in simulation!
 ## Common Commands
 
 ### Check Connection
+
 ```typescript
 const isConnected = mavlink.isConnected()
 ```
 
 ### Get System Info
+
 ```typescript
 const systemId = mavlink.getSystemId()
 const componentId = mavlink.getComponentId()
 ```
 
 ### Change Flight Mode
+
 ```typescript
-await mavlink.setFlightMode('LOITER')  // Hold position
-await mavlink.setFlightMode('AUTO')    // Follow mission
-await mavlink.setFlightMode('RTL')     // Return home
+await mavlink.setFlightMode('LOITER') // Hold position
+await mavlink.setFlightMode('AUTO') // Follow mission
+await mavlink.setFlightMode('RTL') // Return home
 ```
 
 ### Emergency Actions
+
 ```typescript
 // Pause (hold position)
 await mavlink.pauseVehicle()
@@ -264,6 +269,7 @@ await mavlink.emergencyStop()
 ```
 
 ### Camera Control
+
 ```typescript
 // Take photo
 await mavlink.triggerCamera()
@@ -274,32 +280,37 @@ await mavlink.stopVideoRecording()
 ```
 
 ### Gimbal Control
+
 ```typescript
 await mavlink.setGimbalAttitudeParams({
-  pitch: -45,  // Look down 45 degrees
+  pitch: -45, // Look down 45 degrees
   roll: 0,
-  yaw: 0
+  yaw: 0,
 })
 ```
 
 ## Troubleshooting
 
 ### "Cannot connect"
+
 - Check IP address and port
 - Verify firewall settings
 - Ensure drone is powered on and MAVLink is enabled
 
 ### "No telemetry"
+
 - Wait 1-2 seconds after connection for HEARTBEAT
 - Check if data streams are enabled on drone
 - Try: `await mavlink.requestDataStreamParams({ streamId: 0, rateHz: 4 })`
 
 ### "Commands not working"
+
 - Ensure drone is in GUIDED mode
 - Check if GPS has lock (required for position commands)
 - Verify drone is armed (for flight commands)
 
 ### Serial connection fails
+
 - Check device permissions: `sudo chmod 666 /dev/ttyUSB0`
 - Verify baud rate matches drone settings (usually 57600 or 115200)
 - Check cable connection

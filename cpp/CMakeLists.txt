@@ -26,6 +26,7 @@ set(SOURCES
     vehicle/VehicleState.cpp
     connection/ConnectionManager.cpp
     commands/CommandExecutor.cpp
+    parameters/ParameterManager.cpp
 )
 
 # Create shared library
