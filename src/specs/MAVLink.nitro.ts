@@ -1,4 +1,4 @@
 import type { HybridObject } from "react-native-nitro-modules"
 
-export interface MAVLinkType extends HybridObject<{ ios: 'c++', android: 'c++' }> {
+export interface MAVLink extends HybridObject<{ ios: 'c++', android: 'c++' }> {
 }

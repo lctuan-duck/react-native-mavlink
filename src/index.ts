@@ -1,4 +1,4 @@
 import { NitroModules } from 'react-native-nitro-modules'
-import type { MAVLinkType } from './specs/MAVLink.nitro'
+import type { MAVLink } from './specs/MAVLink.nitro'
 
-export const MAVLink = NitroModules.createHybridObject<MAVLinkType>('MAVLink')
+export const HybridMAVLink = NitroModules.createHybridObject<MAVLink>('MAVLink')

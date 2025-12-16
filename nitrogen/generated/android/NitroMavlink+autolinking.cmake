@@ -33,7 +33,7 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/NitroMavlinkOnLoad.cpp
   # Shared Nitrogen C++ sources
-  ../nitrogen/generated/shared/c++/HybridMAVLinkTypeSpec.cpp
+  ../nitrogen/generated/shared/c++/HybridMAVLinkSpec.cpp
   # Android-specific Nitrogen C++ sources
   
 )
