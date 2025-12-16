@@ -31,36 +31,26 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::connectWithConfig(const Connection
             // Cast double to ConnectionType enum
             ConnectionType connType = static_cast<ConnectionType>(static_cast<int>(config.type));
             
-            if (connType == ConnectionType::UDP) {
-                success = _connectionManager->connectUDP(config.address, static_cast<int>(config.port));
-            } 
-            else if (connType == ConnectionType::TCP) {
-                success = _connectionManager->connectTCP(config.address, static_cast<int>(config.port));
-            }
-            else if (connType == ConnectionType::SERIAL) {
-                success = _connectionManager->connectSerial(config.address, static_cast<int>(config.baudRate));
-            }
+            // Use public connect() method with all parameters
+            success = _connectionManager->connect(
+                connType,
+                config.address,
+                static_cast<int>(config.port),
+                static_cast<int>(config.baudRate)
+            );
             
             if (success) {
                 _isConnected = true;
                 // Give system time to receive HEARTBEAT
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 
-                // Request data streams
-                if (_vehicleState->getSystemId() > 0) {
-                    _connectionManager->requestDataStream(
-                        _vehicleState->getSystemId(),
-                        _vehicleState->getComponentId(),
-                        MAV_DATA_STREAM_ALL,
-                        4 // 4Hz for all streams
-                    );
-                }
+                // Note: Data stream requests removed - handled by MAVLink HEARTBEAT
             }
             
             promise->resolve(success);
         }
-        catch (...) {
-            promise->reject(std::runtime_error("Connection failed"));
+        catch (const std::exception& e) {
+            promise->reject(std::make_exception_ptr(e));
         }
     }).detach();
     
@@ -127,11 +117,11 @@ double HybridMAVLink::getYaw() {
 }
 
 double HybridMAVLink::getBatteryVoltage(double batteryId) {
-    return _vehicleState->getBatteryVoltage();
+    return _vehicleState->getBatteryVoltage(static_cast<int>(batteryId));
 }
 
 double HybridMAVLink::getBatteryRemaining(double batteryId) {
-    return _vehicleState->getBatteryRemaining();
+    return _vehicleState->getBatteryRemaining(static_cast<int>(batteryId));
 }
 
 double HybridMAVLink::getGPSFixType() {
@@ -191,7 +181,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setFlightMode(const std::string& m
     // This is a simplified implementation - real implementation needs firmware-specific mapping
     // For now, just reject with message that this needs to be implemented properly
     auto promise = Promise<bool>::create();
-    promise->reject(std::runtime_error(
+    promise->reject(std::make_exception_ptr(std::runtime_error(
         "setFlightMode with string not implemented. Use MAV_CMD_DO_SET_MODE with custom_mode directly."
     ));
     return promise;
@@ -228,7 +218,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::guidedGotoCoordinate(const Coordin
     auto promise = Promise<bool>::create();
     
     if (!_commandExecutor) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -297,20 +287,20 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::guidedChangeHeading(double heading
 std::shared_ptr<Promise<bool>> HybridMAVLink::guidedOrbitParams(const OrbitParams& params) {
     // MAV_CMD_DO_ORBIT
     // param1: radius (m)
-    // param2: velocity (m/s)
-    // param3: yaw behavior (0=front to center, 1=hold initial)
+    // param2: velocity (m/s, negative for counter-clockwise)
+    // param3: yaw behavior (0=front to center, 1=hold initial heading)
     // param5: latitude
     // param6: longitude
-    // param7: altitude
+    // param7: altitude (MSL)
     return executeCommand(
         MAV_CMD_DO_ORBIT,
         static_cast<float>(params.radius),
         static_cast<float>(params.velocity),
-        static_cast<float>(params.yawBehavior),
+        0, // yaw behavior: front to center
         0, // Reserved
-        static_cast<float>(params.center.latitude),
-        static_cast<float>(params.center.longitude),
-        static_cast<float>(params.center.altitude)
+        static_cast<float>(params.latitude),
+        static_cast<float>(params.longitude),
+        0  // altitude (use current altitude)
     );
 }
 
@@ -355,7 +345,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setCurrentMissionItem(double seque
     auto promise = Promise<bool>::create();
     
     if (!_connectionManager->isConnected()) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -389,7 +379,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::clearMission() {
     auto promise = Promise<bool>::create();
     
     if (!_connectionManager->isConnected()) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -422,7 +412,7 @@ std::shared_ptr<Promise<double>> HybridMAVLink::getParameter(const std::string& 
     auto promise = Promise<double>::create();
     
     if (!_parameterManager) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -430,7 +420,7 @@ std::shared_ptr<Promise<double>> HybridMAVLink::getParameter(const std::string& 
         if (success) {
             promise->resolve(static_cast<double>(value));
         } else {
-            promise->reject(std::runtime_error("Parameter request failed or timed out"));
+            promise->reject(std::make_exception_ptr(std::runtime_error("Parameter request failed or timed out"));
         }
     });
     
@@ -441,7 +431,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setParameter(const std::string& na
     auto promise = Promise<bool>::create();
     
     if (!_parameterManager) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -453,7 +443,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setParameter(const std::string& na
             if (success) {
                 promise->resolve(true);
             } else {
-                promise->reject(std::runtime_error("Parameter set failed or timed out"));
+                promise->reject(std::make_exception_ptr(std::runtime_error("Parameter set failed or timed out"));
             }
         }
     );
@@ -469,7 +459,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::refreshParameters() {
     auto promise = Promise<bool>::create();
     
     if (!_parameterManager) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -561,7 +551,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::requestDataStreamParams(const Data
     auto promise = Promise<bool>::create();
     
     if (!_connectionManager->isConnected()) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -601,7 +591,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::executeCommand(
     auto promise = Promise<bool>::create();
     
     if (!_commandExecutor) {
-        promise->reject(std::runtime_error("Not connected"));
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected"));
         return promise;
     }
     
@@ -611,7 +601,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::executeCommand(
             if (result == CommandResult::ACCEPTED || result == CommandResult::IN_PROGRESS) {
                 promise->resolve(true);
             } else {
-                promise->reject(std::runtime_error(message));
+                promise->reject(std::make_exception_ptr(std::runtime_error(message));
             }
         }
     );
