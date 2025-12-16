@@ -9,7 +9,7 @@
 #include <string>
 #include <mutex>
 #include <atomic>
-#include "../MAVLink/v2.0/common/mavlink.h"
+#include "../mavlink/v2.0/common/mavlink.h"
 
 namespace margelo::nitro::mavlink {
 

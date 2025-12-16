@@ -11,7 +11,7 @@
 #include <memory>
 #include <functional>
 #include <chrono>
-#include "../MAVLink/v2.0/common/mavlink.h"
+#include "../mavlink/v2.0/common/mavlink.h"
 
 namespace margelo::nitro::mavlink {
 
@@ -46,8 +46,8 @@ struct ParameterRequest {
     int retriesLeft;
     
     ParameterRequest()
-        : retriesLeft(0)
-        , sentTime(std::chrono::steady_clock::now()) {}
+        : sentTime(std::chrono::steady_clock::now())
+        , retriesLeft(0) {}
 };
 
 /**
