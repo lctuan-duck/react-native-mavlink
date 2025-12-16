@@ -556,9 +556,24 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::requestDataStreamParams(const Data
         return promise;
     }
     
-    // Note: Data stream requests are typically handled automatically by MAVLink heartbeat
-    // If needed, implement mavlink_msg_request_data_stream_pack and send via ConnectionManager
-    // For now, just resolve successfully
+    // Send REQUEST_DATA_STREAM message (based on QGC Vehicle.cc line 1655-1685)
+    mavlink_message_t msg;
+    mavlink_request_data_stream_t dataStream = {};
+    
+    dataStream.target_system = _vehicleState->getSystemId();
+    dataStream.target_component = _vehicleState->getComponentId();
+    dataStream.req_stream_id = static_cast<uint8_t>(request.streamId);
+    dataStream.req_message_rate = static_cast<uint16_t>(request.rate);
+    dataStream.start_stop = 1; // 1=start, 0=stop
+    
+    mavlink_msg_request_data_stream_encode(
+        _connectionManager->getSystemId(),
+        _connectionManager->getComponentId(),
+        &msg,
+        &dataStream
+    );
+    
+    _connectionManager->sendMessage(msg);
     promise->resolve(true);
     return promise;
 }
