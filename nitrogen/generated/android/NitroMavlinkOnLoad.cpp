@@ -15,7 +15,7 @@
 #include <fbjni/fbjni.h>
 #include <NitroModules/HybridObjectRegistry.hpp>
 
-#include "HybirdMAVLink.hpp"
+#include "HybridMAVLink.hpp"
 
 namespace margelo::nitro::mavlink {
 
@@ -32,10 +32,10 @@ int initialize(JavaVM* vm) {
     HybridObjectRegistry::registerHybridObjectConstructor(
       "MAVLink",
       []() -> std::shared_ptr<HybridObject> {
-        static_assert(std::is_default_constructible_v<HybirdMAVLink>,
-                      "The HybridObject \"HybirdMAVLink\" is not default-constructible! "
+        static_assert(std::is_default_constructible_v<HybridMAVLink>,
+                      "The HybridObject \"HybridMAVLink\" is not default-constructible! "
                       "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-        return std::make_shared<HybirdMAVLink>();
+        return std::make_shared<HybridMAVLink>();
       }
     );
   });
