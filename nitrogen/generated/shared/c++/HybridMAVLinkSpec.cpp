@@ -14,7 +14,57 @@ namespace margelo::nitro::mavlink {
     HybridObject::loadHybridMethods();
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
-      
+      prototype.registerHybridMethod("connectWithConfig", &HybridMAVLinkSpec::connectWithConfig);
+      prototype.registerHybridMethod("disconnect", &HybridMAVLinkSpec::disconnect);
+      prototype.registerHybridMethod("isConnected", &HybridMAVLinkSpec::isConnected);
+      prototype.registerHybridMethod("getLatitude", &HybridMAVLinkSpec::getLatitude);
+      prototype.registerHybridMethod("getLongitude", &HybridMAVLinkSpec::getLongitude);
+      prototype.registerHybridMethod("getAltitude", &HybridMAVLinkSpec::getAltitude);
+      prototype.registerHybridMethod("getHeading", &HybridMAVLinkSpec::getHeading);
+      prototype.registerHybridMethod("getGroundSpeed", &HybridMAVLinkSpec::getGroundSpeed);
+      prototype.registerHybridMethod("getAirSpeed", &HybridMAVLinkSpec::getAirSpeed);
+      prototype.registerHybridMethod("getClimbRate", &HybridMAVLinkSpec::getClimbRate);
+      prototype.registerHybridMethod("getRoll", &HybridMAVLinkSpec::getRoll);
+      prototype.registerHybridMethod("getPitch", &HybridMAVLinkSpec::getPitch);
+      prototype.registerHybridMethod("getYaw", &HybridMAVLinkSpec::getYaw);
+      prototype.registerHybridMethod("getBatteryVoltage", &HybridMAVLinkSpec::getBatteryVoltage);
+      prototype.registerHybridMethod("getBatteryRemaining", &HybridMAVLinkSpec::getBatteryRemaining);
+      prototype.registerHybridMethod("getGPSFixType", &HybridMAVLinkSpec::getGPSFixType);
+      prototype.registerHybridMethod("getGPSSatelliteCount", &HybridMAVLinkSpec::getGPSSatelliteCount);
+      prototype.registerHybridMethod("isArmed", &HybridMAVLinkSpec::isArmed);
+      prototype.registerHybridMethod("isFlying", &HybridMAVLinkSpec::isFlying);
+      prototype.registerHybridMethod("getFlightMode", &HybridMAVLinkSpec::getFlightMode);
+      prototype.registerHybridMethod("getSystemId", &HybridMAVLinkSpec::getSystemId);
+      prototype.registerHybridMethod("getComponentId", &HybridMAVLinkSpec::getComponentId);
+      prototype.registerHybridMethod("setArmed", &HybridMAVLinkSpec::setArmed);
+      prototype.registerHybridMethod("setFlightMode", &HybridMAVLinkSpec::setFlightMode);
+      prototype.registerHybridMethod("guidedTakeoff", &HybridMAVLinkSpec::guidedTakeoff);
+      prototype.registerHybridMethod("guidedLand", &HybridMAVLinkSpec::guidedLand);
+      prototype.registerHybridMethod("guidedRTL", &HybridMAVLinkSpec::guidedRTL);
+      prototype.registerHybridMethod("guidedGotoCoordinate", &HybridMAVLinkSpec::guidedGotoCoordinate);
+      prototype.registerHybridMethod("guidedChangeAltitude", &HybridMAVLinkSpec::guidedChangeAltitude);
+      prototype.registerHybridMethod("guidedChangeHeading", &HybridMAVLinkSpec::guidedChangeHeading);
+      prototype.registerHybridMethod("guidedOrbitParams", &HybridMAVLinkSpec::guidedOrbitParams);
+      prototype.registerHybridMethod("guidedROICoordinate", &HybridMAVLinkSpec::guidedROICoordinate);
+      prototype.registerHybridMethod("guidedClearROI", &HybridMAVLinkSpec::guidedClearROI);
+      prototype.registerHybridMethod("pauseVehicle", &HybridMAVLinkSpec::pauseVehicle);
+      prototype.registerHybridMethod("emergencyStop", &HybridMAVLinkSpec::emergencyStop);
+      prototype.registerHybridMethod("startMission", &HybridMAVLinkSpec::startMission);
+      prototype.registerHybridMethod("setCurrentMissionItem", &HybridMAVLinkSpec::setCurrentMissionItem);
+      prototype.registerHybridMethod("getCurrentMissionItem", &HybridMAVLinkSpec::getCurrentMissionItem);
+      prototype.registerHybridMethod("clearMission", &HybridMAVLinkSpec::clearMission);
+      prototype.registerHybridMethod("getParameter", &HybridMAVLinkSpec::getParameter);
+      prototype.registerHybridMethod("setParameter", &HybridMAVLinkSpec::setParameter);
+      prototype.registerHybridMethod("setParameterValue", &HybridMAVLinkSpec::setParameterValue);
+      prototype.registerHybridMethod("refreshParameters", &HybridMAVLinkSpec::refreshParameters);
+      prototype.registerHybridMethod("triggerCamera", &HybridMAVLinkSpec::triggerCamera);
+      prototype.registerHybridMethod("startVideoRecording", &HybridMAVLinkSpec::startVideoRecording);
+      prototype.registerHybridMethod("stopVideoRecording", &HybridMAVLinkSpec::stopVideoRecording);
+      prototype.registerHybridMethod("setGimbalAttitudeParams", &HybridMAVLinkSpec::setGimbalAttitudeParams);
+      prototype.registerHybridMethod("sendManualControlInput", &HybridMAVLinkSpec::sendManualControlInput);
+      prototype.registerHybridMethod("rebootAutopilot", &HybridMAVLinkSpec::rebootAutopilot);
+      prototype.registerHybridMethod("requestDataStreamParams", &HybridMAVLinkSpec::requestDataStreamParams);
+      prototype.registerHybridMethod("sendCommandParams", &HybridMAVLinkSpec::sendCommandParams);
     });
   }
 

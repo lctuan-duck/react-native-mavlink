@@ -13,9 +13,33 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
+// Forward declaration of `ConnectionConfig` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct ConnectionConfig; }
+// Forward declaration of `Coordinate` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct Coordinate; }
+// Forward declaration of `OrbitParams` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct OrbitParams; }
+// Forward declaration of `ParameterSet` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct ParameterSet; }
+// Forward declaration of `GimbalAttitude` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct GimbalAttitude; }
+// Forward declaration of `ManualControlInput` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct ManualControlInput; }
+// Forward declaration of `DataStreamRequest` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct DataStreamRequest; }
+// Forward declaration of `CommandParams` to properly resolve imports.
+namespace margelo::nitro::mavlink { struct CommandParams; }
 
-
-
+#include <NitroModules/Promise.hpp>
+#include "ConnectionConfig.hpp"
+#include <string>
+#include "Coordinate.hpp"
+#include "OrbitParams.hpp"
+#include "ParameterSet.hpp"
+#include "GimbalAttitude.hpp"
+#include "ManualControlInput.hpp"
+#include "DataStreamRequest.hpp"
+#include "CommandParams.hpp"
 
 namespace margelo::nitro::mavlink {
 
@@ -48,7 +72,57 @@ namespace margelo::nitro::mavlink {
 
     public:
       // Methods
-      
+      virtual std::shared_ptr<Promise<bool>> connectWithConfig(const ConnectionConfig& config) = 0;
+      virtual std::shared_ptr<Promise<void>> disconnect() = 0;
+      virtual bool isConnected() = 0;
+      virtual double getLatitude() = 0;
+      virtual double getLongitude() = 0;
+      virtual double getAltitude() = 0;
+      virtual double getHeading() = 0;
+      virtual double getGroundSpeed() = 0;
+      virtual double getAirSpeed() = 0;
+      virtual double getClimbRate() = 0;
+      virtual double getRoll() = 0;
+      virtual double getPitch() = 0;
+      virtual double getYaw() = 0;
+      virtual double getBatteryVoltage(double batteryId) = 0;
+      virtual double getBatteryRemaining(double batteryId) = 0;
+      virtual double getGPSFixType() = 0;
+      virtual double getGPSSatelliteCount() = 0;
+      virtual bool isArmed() = 0;
+      virtual bool isFlying() = 0;
+      virtual std::string getFlightMode() = 0;
+      virtual double getSystemId() = 0;
+      virtual double getComponentId() = 0;
+      virtual std::shared_ptr<Promise<bool>> setArmed(bool arm, bool force) = 0;
+      virtual std::shared_ptr<Promise<bool>> setFlightMode(const std::string& mode) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedTakeoff(double altitude) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedLand() = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedRTL(bool smartRTL) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedGotoCoordinate(const Coordinate& coordinate) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedChangeAltitude(double altitudeChange) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedChangeHeading(double heading) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedOrbitParams(const OrbitParams& params) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedROICoordinate(const Coordinate& coordinate) = 0;
+      virtual std::shared_ptr<Promise<bool>> guidedClearROI() = 0;
+      virtual std::shared_ptr<Promise<bool>> pauseVehicle() = 0;
+      virtual std::shared_ptr<Promise<bool>> emergencyStop() = 0;
+      virtual std::shared_ptr<Promise<bool>> startMission() = 0;
+      virtual std::shared_ptr<Promise<bool>> setCurrentMissionItem(double sequence) = 0;
+      virtual double getCurrentMissionItem() = 0;
+      virtual std::shared_ptr<Promise<bool>> clearMission() = 0;
+      virtual std::shared_ptr<Promise<double>> getParameter(const std::string& name) = 0;
+      virtual std::shared_ptr<Promise<bool>> setParameter(const std::string& name, double value) = 0;
+      virtual std::shared_ptr<Promise<bool>> setParameterValue(const ParameterSet& param) = 0;
+      virtual std::shared_ptr<Promise<bool>> refreshParameters() = 0;
+      virtual std::shared_ptr<Promise<bool>> triggerCamera() = 0;
+      virtual std::shared_ptr<Promise<bool>> startVideoRecording() = 0;
+      virtual std::shared_ptr<Promise<bool>> stopVideoRecording() = 0;
+      virtual std::shared_ptr<Promise<bool>> setGimbalAttitudeParams(const GimbalAttitude& attitude) = 0;
+      virtual void sendManualControlInput(const ManualControlInput& input) = 0;
+      virtual std::shared_ptr<Promise<bool>> rebootAutopilot() = 0;
+      virtual std::shared_ptr<Promise<bool>> requestDataStreamParams(const DataStreamRequest& request) = 0;
+      virtual std::shared_ptr<Promise<bool>> sendCommandParams(const CommandParams& params) = 0;
 
     protected:
       // Hybrid Setup
