@@ -20,15 +20,39 @@ export default function App() {
       // iOS Simulator: Use 127.0.0.1 (direct localhost)
       // Real Device: Use Windows IP (e.g., 192.168.1.100)
       const success = await connectUDP('10.0.2.2', 14550)
+      console.log('Socket connected:', success)
+
       if (success) {
-        setConnected(true)
-        setStatus('Connected')
-        startTelemetryUpdate()
+        setStatus('Connected - Waiting for HEARTBEAT...')
+
+        // Wait for HEARTBEAT message (up to 5 seconds)
+        let attempts = 0
+        const checkConnection = setInterval(() => {
+          attempts++
+          const isConn = mavlink.isConnected()
+          const sysId = mavlink.getSystemId()
+          const compId = mavlink.getComponentId()
+
+          console.log(`Attempt ${attempts}: isConnected=${isConn}, sysId=${sysId}, compId=${compId}`)
+
+          if (isConn) {
+            clearInterval(checkConnection)
+            setConnected(true)
+            setStatus('Connected')
+            console.log('✅ MAVLink connected! System ID:', sysId)
+            startTelemetryUpdate()
+          } else if (attempts >= 50) { // 5 seconds timeout
+            clearInterval(checkConnection)
+            setStatus('Connection timeout - No HEARTBEAT received')
+            console.error('❌ Timeout waiting for HEARTBEAT')
+          }
+        }, 100)
       } else {
         setStatus('Connection failed')
       }
     } catch (error) {
       setStatus(`Error: ${error}`)
+      console.error('Connection error:', error)
     }
   }
 

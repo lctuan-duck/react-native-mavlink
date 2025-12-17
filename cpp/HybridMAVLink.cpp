@@ -7,6 +7,10 @@
 #include <chrono>
 #include <thread>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 #ifdef _WIN32
 #include <winsock2.h>
 #pragma comment(lib, "ws2_32.lib")
@@ -41,6 +45,8 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::connectWithConfig(const Connection
             
             if (success) {
                 _isConnected = true;
+                // Start sending GCS heartbeat to let vehicle know our address
+                startGCSHeartbeat();
                 // Note: System/component IDs and managers will be initialized when first message received
             }
             
@@ -634,6 +640,11 @@ void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
             // First HEARTBEAT from vehicle - save system/component ID
             // Based on QGC Vehicle.cc:454-458
             if (_vehicleState->getSystemId() == 0) {
+                #ifdef __ANDROID__
+                __android_log_print(ANDROID_LOG_INFO, "MAVLink", "First HEARTBEAT: sysid=%d, compid=%d", 
+                    message.sysid, message.compid);
+                #endif
+                
                 _vehicleState->setSystemId(message.sysid);
                 _vehicleState->setComponentId(message.compid);
                 
@@ -650,6 +661,10 @@ void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
                         message.sysid,
                         message.compid
                     );
+                    
+                    #ifdef __ANDROID__
+                    __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Managers initialized for system %d", message.sysid);
+                    #endif
                 }
             }
             break;
@@ -727,6 +742,49 @@ void HybridMAVLink::timeoutCheckLoop() {
             _parameterManager->checkTimeouts();
         }
     }
+}
+
+void HybridMAVLink::startGCSHeartbeat() {
+    // Start thread to send GCS heartbeat every 1 second
+    // This lets vehicle know our UDP address for replies
+    std::thread([this]() {
+        #ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Starting GCS heartbeat thread");
+        #endif
+        
+        while (_isConnected && _shouldRun) {
+            sendGCSHeartbeat();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }).detach();
+}
+
+void HybridMAVLink::sendGCSHeartbeat() {
+    mavlink_message_t msg;
+    
+    // GCS heartbeat: type=MAV_TYPE_GCS, autopilot=MAV_AUTOPILOT_INVALID
+    mavlink_msg_heartbeat_pack(
+        255,  // System ID for GCS
+        190,  // Component ID for GCS
+        &msg,
+        MAV_TYPE_GCS,           // type
+        MAV_AUTOPILOT_INVALID,  // autopilot
+        0,                      // base_mode
+        0,                      // custom_mode
+        MAV_STATE_ACTIVE        // system_status
+    );
+    
+    // Send to connection
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    _connectionManager->sendMessage(buffer, len);
+    
+    #ifdef __ANDROID__
+    static int heartbeat_count = 0;
+    if (++heartbeat_count % 10 == 0) { // Log every 10 heartbeats
+        __android_log_print(ANDROID_LOG_DEBUG, "MAVLink", "Sent GCS heartbeat #%d", heartbeat_count);
+    }
+    #endif
 }
 
 } // namespace margelo::nitro::mavlink

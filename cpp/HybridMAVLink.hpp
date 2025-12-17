@@ -159,6 +159,10 @@ private:
     std::thread _timeoutCheckThread;
     void timeoutCheckLoop();
     
+    // GCS Heartbeat
+    void startGCSHeartbeat();
+    void sendGCSHeartbeat();
+    
     // Message handling
     void handleMavlinkMessage(const mavlink_message_t& message);
     

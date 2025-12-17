@@ -8,6 +8,10 @@
 #include <iostream>
 #include <cstring>
 #include <chrono>
+
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 #include <thread>
 
 #ifdef _WIN32
@@ -555,6 +559,14 @@ void ConnectionManager::parseReceivedData(const uint8_t* data, size_t length) {
         if (mavlink_parse_char(MAVLINK_COMM_0, data[i], &_mavlinkMessage, &_mavlinkStatus)) {
             // Message received
             _messagesReceived++;
+            
+            #ifdef __ANDROID__
+            if (_mavlinkMessage.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
+                __android_log_print(ANDROID_LOG_INFO, "MAVLink", 
+                    "HEARTBEAT received: sysid=%d, compid=%d, msgid=%d", 
+                    _mavlinkMessage.sysid, _mavlinkMessage.compid, _mavlinkMessage.msgid);
+            }
+            #endif
             
             // Store target system ID from first message
             if (_targetSystemId == 0) {
