@@ -72,9 +72,16 @@ No additional steps required. The native module is automatically linked.
 import { mavlink, connectUDP, getTelemetry } from 'react-native-mavlink'
 
 // Connect via UDP (SITL or MAVProxy)
+// Note: Connection waits for vehicle HEARTBEAT (up to 5 seconds)
 const connected = await connectUDP('10.0.2.2', 14550) // Android Emulator
 // const connected = await connectUDP('127.0.0.1', 14550) // iOS Simulator
 // const connected = await connectUDP('192.168.1.100', 14550) // Real device
+
+if (connected) {
+  console.log('Connected to vehicle!') // Ready for commands
+  console.log('System ID:', mavlink.getSystemId())
+  console.log('Flight Mode:', mavlink.getFlightMode())
+}
 
 // Or connect via Serial (Android only, requires USB OTG)
 import { connectSerial } from 'react-native-mavlink'
@@ -84,6 +91,12 @@ const connected = await connectSerial('/dev/ttyUSB0', 115200)
 import { connectTCP } from 'react-native-mavlink'
 const connected = await connectTCP('192.168.1.100', 5760)
 ```
+
+**Connection Behavior**:
+- `connectWithConfig()` returns `true` only after receiving vehicle HEARTBEAT
+- Waits up to **5 seconds** for HEARTBEAT exchange
+- Returns `false` if no HEARTBEAT received (timeout or vehicle not responding)
+- After `true` returned, all commands are ready to use immediately
 
 **Important Network Notes**:
 

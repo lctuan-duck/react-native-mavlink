@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Sends MAV_CMD_DO_SET_MODE with proper custom_mode values
   - Based on QGroundControl ArduCopterFirmwarePlugin implementation
 
+### Changed
+
+- **Connection Behavior (Breaking Change)**
+  - `connectWithConfig()` now waits for vehicle HEARTBEAT before resolving
+  - Returns `true` only after successful HEARTBEAT exchange (up to 5 seconds)
+  - Returns `false` if timeout or no HEARTBEAT received
+  - Similar to QGroundControl connection behavior
+  - Ensures commands are ready to use immediately after successful connection
+  - No need to poll `isConnected()` after `await connectWithConfig()`
+
 ### Fixed
 
 - **UDP Connection**
@@ -24,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Vehicle now correctly receives HEARTBEAT and replies with its own
   - Added background thread for periodic GCS HEARTBEAT transmission (1Hz)
   - Resolves issue where `isConnected()` remained false after UDP connect
+  
+- **Connection State Consistency**
+  - Fixed race condition where `connectWithConfig()` returned true but `isConnected()` was false
+  - Both methods now return consistent state after connection
 
 ### Planned
 

@@ -49,12 +49,43 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::connectWithConfig(const Connection
                 _isConnected = true;
                 // Start sending GCS heartbeat to let vehicle know our address
                 startGCSHeartbeat();
-                // Note: System/component IDs and managers will be initialized when first message received
+                
+                #ifdef __ANDROID__
+                __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Socket connected, waiting for vehicle HEARTBEAT...");
+                #endif
+                
+                // Wait for vehicle HEARTBEAT (up to 5 seconds)
+                // Based on QGC behavior - connection is only ready when we receive first HEARTBEAT
+                bool vehicleReady = false;
+                for (int i = 0; i < 50; i++) {
+                    if (_vehicleState->getSystemId() > 0) {
+                        vehicleReady = true;
+                        #ifdef __ANDROID__
+                        __android_log_print(ANDROID_LOG_INFO, "MAVLink", 
+                            "Vehicle HEARTBEAT received after %d ms, systemId=%d", 
+                            i * 100, _vehicleState->getSystemId());
+                        #endif
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                
+                if (!vehicleReady) {
+                    #ifdef __ANDROID__
+                    __android_log_print(ANDROID_LOG_WARN, "MAVLink", 
+                        "Timeout waiting for vehicle HEARTBEAT after 5 seconds");
+                    #endif
+                    _isConnected = false;
+                    _connectionManager->disconnect();
+                }
+                
+                promise->resolve(vehicleReady);
+            } else {
+                promise->resolve(false);
             }
-            
-            promise->resolve(success);
         }
         catch (const std::exception& e) {
+            _isConnected = false;
             promise->reject(std::make_exception_ptr(e));
         }
     }).detach();
@@ -74,6 +105,8 @@ std::shared_ptr<Promise<void>> HybridMAVLink::disconnect() {
 }
 
 bool HybridMAVLink::isConnected() {
+    // After connectWithConfig() resolves true, this should always return true
+    // because we already waited for HEARTBEAT in connectWithConfig()
     return _isConnected && _vehicleState->getSystemId() > 0;
 }
 
