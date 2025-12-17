@@ -163,6 +163,9 @@ private:
     void startGCSHeartbeat();
     void sendGCSHeartbeat();
     
+    // Data stream requests
+    void requestAllDataStreams();
+    
     // Message handling
     void handleMavlinkMessage(const mavlink_message_t& message);
     

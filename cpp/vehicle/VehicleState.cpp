@@ -125,6 +125,22 @@ void VehicleState::handleSysStatus(const mavlink_sys_status_t& sysStatus) {
     _sensorsPresentBits = sysStatus.onboard_control_sensors_present;
     _sensorsEnabledBits = sysStatus.onboard_control_sensors_enabled;
     _sensorsHealthBits = sysStatus.onboard_control_sensors_health;
+    
+    // SYS_STATUS also contains battery info (fallback if no BATTERY_STATUS message)
+    // voltage_battery in millivolts, convert to volts
+    if (sysStatus.voltage_battery != UINT16_MAX) {
+        _batteries[0].voltage = sysStatus.voltage_battery / 1000.0;
+    }
+    
+    // battery_remaining in percentage (-1 if unknown)
+    if (sysStatus.battery_remaining != -1) {
+        _batteries[0].remaining = sysStatus.battery_remaining;
+    }
+    
+    // current_battery in centiamperes, convert to amperes
+    if (sysStatus.current_battery != -1) {
+        _batteries[0].current = sysStatus.current_battery / 100.0;
+    }
 }
 
 // ============================================================================

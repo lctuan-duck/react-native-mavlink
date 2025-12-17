@@ -23,6 +23,16 @@
 namespace margelo::nitro::mavlink {
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+// GCS (Ground Control Station) identification
+constexpr uint8_t GCS_SYSTEM_ID = 255; // Standard GCS system ID
+
+// MAV_CMD_COMPONENT_ARM_DISARM parameters
+constexpr float ARM_DISARM_FORCE_PARAM = 21196.0f; // Force arm/disarm parameter
+
+// ============================================================================
 // CONNECTION MANAGEMENT
 // ============================================================================
 
@@ -204,7 +214,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setArmed(bool arm, bool force) {
     // MAV_CMD_COMPONENT_ARM_DISARM
     // param1: 1 to arm, 0 to disarm
     // param2: force arm/disarm (0=normal, 21196=force)
-    float forceParam = force ? 21196.0f : 0.0f;
+    float forceParam = force ? ARM_DISARM_FORCE_PARAM : 0.0f;
     return executeCommand(
         MAV_CMD_COMPONENT_ARM_DISARM,
         arm ? 1.0f : 0.0f,
@@ -361,7 +371,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::guidedGotoCoordinate(const Coordin
     target.type_mask = 0b0000111111111000; // Only position
     
     mavlink_msg_set_position_target_global_int_encode(
-        255, // System ID (GCS)
+        GCS_SYSTEM_ID,
         MAV_COMP_ID_MISSIONPLANNER,
         &msg,
         &target
@@ -480,7 +490,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setCurrentMissionItem(double seque
     current.seq = static_cast<uint16_t>(sequence);
     
     mavlink_msg_mission_set_current_encode(
-        255,
+        GCS_SYSTEM_ID,
         MAV_COMP_ID_MISSIONPLANNER,
         &msg,
         &current
@@ -513,7 +523,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::clearMission() {
     clear.target_component = _vehicleState->getComponentId();
     
     mavlink_msg_mission_clear_all_encode(
-        255,
+        GCS_SYSTEM_ID,
         MAV_COMP_ID_MISSIONPLANNER,
         &msg,
         &clear
@@ -648,7 +658,7 @@ void HybridMAVLink::sendManualControlInput(const ManualControlInput& input) {
     control.buttons = 0; // Not exposed in ManualControlInput
     
     mavlink_msg_manual_control_encode(
-        255,
+        GCS_SYSTEM_ID,
         MAV_COMP_ID_MISSIONPLANNER,
         &msg,
         &control
@@ -784,6 +794,10 @@ void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
                     #ifdef __ANDROID__
                     __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Managers initialized for system %d", message.sysid);
                     #endif
+                    
+                    // Request data streams after initialization (based on QGC)
+                    // Request ALL stream at 4Hz for telemetry
+                    requestAllDataStreams();
                 }
             }
             break;
@@ -883,8 +897,8 @@ void HybridMAVLink::sendGCSHeartbeat() {
     
     // GCS heartbeat: type=MAV_TYPE_GCS, autopilot=MAV_AUTOPILOT_INVALID
     mavlink_msg_heartbeat_pack(
-        255,  // System ID for GCS
-        190,  // Component ID for GCS
+        GCS_SYSTEM_ID,
+        MAV_COMP_ID_MISSIONPLANNER,
         &msg,
         MAV_TYPE_GCS,           // type
         MAV_AUTOPILOT_INVALID,  // autopilot
@@ -902,6 +916,39 @@ void HybridMAVLink::sendGCSHeartbeat() {
         __android_log_print(ANDROID_LOG_DEBUG, "MAVLink", "Sent GCS heartbeat #%d", heartbeat_count);
     }
     #endif
+}
+
+void HybridMAVLink::requestAllDataStreams() {
+    // Request data streams at 4Hz (based on QGC default rates)
+    // This is called automatically after first HEARTBEAT received
+    
+    if (_vehicleState->getSystemId() == 0) {
+        return; // Not ready yet
+    }
+    
+    #ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Requesting data streams at 4Hz");
+    #endif
+    
+    // Request all streams (MAV_DATA_STREAM_ALL)
+    // Rate = 4Hz for telemetry updates
+    mavlink_message_t msg;
+    mavlink_request_data_stream_t dataStream = {};
+    
+    dataStream.target_system = _vehicleState->getSystemId();
+    dataStream.target_component = _vehicleState->getComponentId();
+    dataStream.req_stream_id = MAV_DATA_STREAM_ALL;  // Enable all data streams
+    dataStream.req_message_rate = 4;  // 4Hz
+    dataStream.start_stop = 1;  // Start streaming
+    
+    mavlink_msg_request_data_stream_encode(
+        _connectionManager->getSystemId(),
+        _connectionManager->getComponentId(),
+        &msg,
+        &dataStream
+    );
+    
+    _connectionManager->sendMessage(msg);
 }
 
 } // namespace margelo::nitro::mavlink
