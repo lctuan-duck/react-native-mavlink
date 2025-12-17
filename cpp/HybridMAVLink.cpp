@@ -207,7 +207,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::guidedLand() {
     return executeCommand(MAV_CMD_NAV_LAND);
 }
 
-std::shared_ptr<Promise<bool>> HybridMAVLink::guidedRTL(bool smartRTL) {
+std::shared_ptr<Promise<bool>> HybridMAVLink::guidedRTL(bool /*smartRTL*/) {
     // MAV_CMD_NAV_RETURN_TO_LAUNCH
     // smartRTL parameter is ignored - ArduCopter specific
     // Use MAV_CMD_DO_SET_MODE with custom_mode if you need SMART_RTL
@@ -609,7 +609,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::executeCommand(
     
     _commandExecutor->sendCommand(
         command, param1, param2, param3, param4, param5, param6, param7,
-        [promise](CommandResult result, uint8_t progress) {
+        [promise](CommandResult result, uint8_t /*progress*/) {
             if (result == CommandResult::SUCCESS || result == CommandResult::IN_PROGRESS) {
                 promise->resolve(true);
             } else {
