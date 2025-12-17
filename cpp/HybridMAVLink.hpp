@@ -34,7 +34,6 @@ public:
             // Note: CommandExecutor and ParameterManager are now created when first message received
             // This ensures we have valid system/component IDs from the vehicle
         });
-        });
         
         // Start timeout check thread
         _timeoutCheckThread = std::thread(&HybridMAVLink::timeoutCheckLoop, this);
