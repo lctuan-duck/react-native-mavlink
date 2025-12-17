@@ -7,10 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Flight Mode Control**
+  - Implemented `setFlightMode()` with ArduPilot Copter mode mappings
+  - Support for 28 flight modes (STABILIZE, GUIDED, RTL, AUTO, etc.)
+  - Case-insensitive mode name matching
+  - Alternative mode names (e.g., "ALT_HOLD" or "ALTITUDE HOLD")
+  - Sends MAV_CMD_DO_SET_MODE with proper custom_mode values
+  - Based on QGroundControl ArduCopterFirmwarePlugin implementation
+
+### Fixed
+
+- **UDP Connection**
+  - Fixed bidirectional UDP communication by sending GCS HEARTBEAT
+  - Vehicle now correctly receives HEARTBEAT and replies with its own
+  - Added background thread for periodic GCS HEARTBEAT transmission (1Hz)
+  - Resolves issue where `isConnected()` remained false after UDP connect
+
 ### Planned
 
-- TCP connection support
+- TCP connection support (implementation ready, needs testing)
 - Serial connection support (platform-specific)
+- PX4 flight mode mappings (currently ArduPilot only)
 - Full parameter management with caching
 - Mission upload/download protocol
 - Event callbacks for telemetry updates

@@ -6,6 +6,8 @@
 #include "HybridMAVLink.hpp"
 #include <chrono>
 #include <thread>
+#include <algorithm>
+#include <map>
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -172,21 +174,103 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setArmed(bool arm, bool force) {
 }
 
 std::shared_ptr<Promise<bool>> HybridMAVLink::setFlightMode(const std::string& mode) {
-    // NOTE: This is firmware-specific!
-    // React Native side must provide correct mode string for the vehicle's firmware
-    // ArduPilot: "STABILIZE", "GUIDED", "RTL", etc.
-    // PX4: "MANUAL", "POSITION", "AUTO", etc.
+    auto promise = Promise<bool>::create();
     
-    // Store mode string in vehicle state for reference
+    if (!isConnected()) {
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected to vehicle")));
+        return promise;
+    }
+    
+    // Map mode string to ArduPilot Copter custom_mode
+    // Reference: QGC ArduCopterFirmwarePlugin
+    uint32_t custom_mode = 0;
+    bool found = false;
+    
+    // Convert mode string to uppercase for case-insensitive comparison
+    std::string upper_mode = mode;
+    std::transform(upper_mode.begin(), upper_mode.end(), upper_mode.begin(), ::toupper);
+    
+    // ArduPilot Copter mode mappings
+    const std::map<std::string, uint32_t> apm_copter_modes = {
+        {"STABILIZE", 0},
+        {"ACRO", 1},
+        {"ALT_HOLD", 2},
+        {"ALTITUDE HOLD", 2},  // Alternative name
+        {"AUTO", 3},
+        {"GUIDED", 4},
+        {"LOITER", 5},
+        {"RTL", 6},
+        {"CIRCLE", 7},
+        {"LAND", 9},
+        {"DRIFT", 11},
+        {"SPORT", 13},
+        {"FLIP", 14},
+        {"AUTOTUNE", 15},
+        {"POS_HOLD", 16},
+        {"POSHOLD", 16},
+        {"POSITION HOLD", 16},  // Alternative name
+        {"BRAKE", 17},
+        {"THROW", 18},
+        {"AVOID_ADSB", 19},
+        {"GUIDED_NOGPS", 20},
+        {"SMART_RTL", 21},
+        {"FLOWHOLD", 22},
+        {"FOLLOW", 23},
+        {"ZIGZAG", 24},
+        {"SYSTEMID", 25},
+        {"AUTOROTATE", 26},
+        {"AUTO_RTL", 27},
+        {"TURTLE", 28}
+    };
+    
+    auto it = apm_copter_modes.find(upper_mode);
+    if (it != apm_copter_modes.end()) {
+        custom_mode = it->second;
+        found = true;
+    }
+    
+    if (!found) {
+        promise->reject(std::make_exception_ptr(std::runtime_error(
+            "Unknown flight mode: " + mode + ". Must be one of: STABILIZE, ACRO, ALT_HOLD, AUTO, GUIDED, LOITER, RTL, CIRCLE, LAND, etc."
+        )));
+        return promise;
+    }
+    
+    // Update internal state first
     _vehicleState->setFlightMode(mode);
     
-    // MAVLink doesn't have a "set mode by string" command
-    // This is a simplified implementation - real implementation needs firmware-specific mapping
-    // For now, just reject with message that this needs to be implemented properly
-    auto promise = Promise<bool>::create();
-    promise->reject(std::make_exception_ptr(std::runtime_error(
-        "setFlightMode with string not implemented. Use MAV_CMD_DO_SET_MODE with custom_mode directly."
-    )));
+    // Send MAV_CMD_DO_SET_MODE command
+    // param1: MAV_MODE_FLAG_CUSTOM_MODE_ENABLED (1)
+    // param2: custom_mode
+    std::vector<float> params = {
+        static_cast<float>(MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),  // base_mode with custom flag
+        static_cast<float>(custom_mode),                         // custom_mode
+        0, 0, 0, 0, 0
+    };
+    
+    auto cmdPromise = _commandExecutor->sendCommand(
+        MAV_CMD_DO_SET_MODE,
+        params,
+        _systemId,
+        _compId
+    );
+    
+    // Chain the promise - resolve/reject based on command result
+    cmdPromise->then([promise, mode](bool success) {
+        if (success) {
+#ifdef __ANDROID__
+            __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Flight mode set to %s", mode.c_str());
+#endif
+            promise->resolve(true);
+        } else {
+            promise->reject(std::make_exception_ptr(std::runtime_error("Failed to set flight mode: " + mode)));
+        }
+    })->catch_([promise, mode](const std::exception& e) {
+        promise->reject(std::make_exception_ptr(std::runtime_error(
+            "Error setting flight mode " + mode + ": " + e.what()
+        )));
+    });
+    
     return promise;
 }
 
