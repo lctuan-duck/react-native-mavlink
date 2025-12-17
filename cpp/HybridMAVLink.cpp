@@ -99,6 +99,12 @@ std::shared_ptr<Promise<void>> HybridMAVLink::disconnect() {
     _isConnected = false;
     _connectionManager->disconnect();
     _commandExecutor.reset();
+    _parameterManager.reset();
+    
+    // Reset vehicle state for clean reconnection
+    // This ensures managers are re-initialized on next HEARTBEAT
+    _vehicleState->setSystemId(0);
+    _vehicleState->setComponentId(0);
     
     promise->resolve();
     return promise;
