@@ -38,6 +38,16 @@ void VehicleState::handleHeartbeat(const mavlink_heartbeat_t& heartbeat) {
 }
 
 void VehicleState::handleGlobalPositionInt(const mavlink_global_position_int_t& position) {
+    // ArduPilot sends bogus GLOBAL_POSITION_INT messages with lat/lon 0/0 even when it has no GPS signal
+    // Apparently, this is in order to transport relative altitude information (QGC Vehicle.cc:738)
+    if (position.lat == 0 && position.lon == 0) {
+        // Still update altitude even with bogus position
+        _altitude = position.alt / 1000.0;
+        _altitudeRelative = position.relative_alt / 1000.0;
+        _altitudeAMSL = position.alt / 1000.0;
+        return;
+    }
+    
     _latitude = position.lat / 1e7;
     _longitude = position.lon / 1e7;
     _altitude = position.alt / 1000.0;
