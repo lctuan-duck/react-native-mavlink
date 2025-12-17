@@ -242,34 +242,30 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setFlightMode(const std::string& m
     // Send MAV_CMD_DO_SET_MODE command
     // param1: MAV_MODE_FLAG_CUSTOM_MODE_ENABLED (1)
     // param2: custom_mode
-    std::vector<float> params = {
-        static_cast<float>(MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),  // base_mode with custom flag
-        static_cast<float>(custom_mode),                         // custom_mode
-        0, 0, 0, 0, 0
-    };
+    if (!_commandExecutor) {
+        promise->reject(std::make_exception_ptr(std::runtime_error("Not connected to vehicle")));
+        return promise;
+    }
     
-    auto cmdPromise = _commandExecutor->sendCommand(
+    _commandExecutor->sendCommand(
         MAV_CMD_DO_SET_MODE,
-        params,
-        _systemId,
-        _compId
-    );
-    
-    // Chain the promise - resolve/reject based on command result
-    cmdPromise->then([promise, mode](bool success) {
-        if (success) {
+        static_cast<float>(MAV_MODE_FLAG_CUSTOM_MODE_ENABLED),  // param1: base_mode with custom flag
+        static_cast<float>(custom_mode),                         // param2: custom_mode
+        0, 0, 0, 0, 0,                                          // param3-7: unused
+        [promise, mode](CommandResult result, uint8_t /*progress*/) {
+            if (result == CommandResult::SUCCESS || result == CommandResult::IN_PROGRESS) {
 #ifdef __ANDROID__
-            __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Flight mode set to %s", mode.c_str());
+                __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Flight mode set to %s", mode.c_str());
 #endif
-            promise->resolve(true);
-        } else {
-            promise->reject(std::make_exception_ptr(std::runtime_error("Failed to set flight mode: " + mode)));
+                promise->resolve(true);
+            } else {
+                std::string error = "Failed to set flight mode: " + mode;
+                if (result == CommandResult::TIMEOUT) error += " (timeout)";
+                else if (result == CommandResult::DENIED) error += " (denied)";
+                promise->reject(std::make_exception_ptr(std::runtime_error(error)));
+            }
         }
-    })->catch_([promise, mode](const std::exception& e) {
-        promise->reject(std::make_exception_ptr(std::runtime_error(
-            "Error setting flight mode " + mode + ": " + e.what()
-        )));
-    });
+    );
     
     return promise;
 }
