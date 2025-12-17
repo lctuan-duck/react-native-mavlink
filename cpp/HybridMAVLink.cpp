@@ -774,10 +774,8 @@ void HybridMAVLink::sendGCSHeartbeat() {
         MAV_STATE_ACTIVE        // system_status
     );
     
-    // Send to connection
-    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
-    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
-    _connectionManager->sendMessage(buffer, len);
+    // Send via ConnectionManager
+    _connectionManager->sendMessage(msg);
     
     #ifdef __ANDROID__
     static int heartbeat_count = 0;
