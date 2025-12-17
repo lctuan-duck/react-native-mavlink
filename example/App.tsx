@@ -16,7 +16,10 @@ export default function App() {
   const handleConnect = async () => {
     try {
       setStatus('Connecting...')
-      const success = await connectUDP('127.0.0.1', 14550) // SITL default
+      // Android Emulator: Use 10.0.2.2 to access Windows host
+      // iOS Simulator: Use 127.0.0.1 (direct localhost)
+      // Real Device: Use Windows IP (e.g., 192.168.1.100)
+      const success = await connectUDP('10.0.2.2', 14550)
       if (success) {
         setConnected(true)
         setStatus('Connected')

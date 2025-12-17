@@ -1,44 +1,46 @@
 # React Native MAVLink
 
-A comprehensive MAVLink library for React Native with full TypeScript support, enabling drone/UAV control and telemetry monitoring.
+A comprehensive MAVLink library for React Native with full TypeScript support, enabling drone/UAV control and telemetry monitoring. Built with React Native Nitro Modules for high-performance native communication.
 
-## Features
+## ✨ Features
 
 ✅ **Complete MAVLink v2.0 Protocol Support**
-
 - UDP, TCP, and Serial connections
-- Thread-safe message handling
-- Automatic retry and acknowledgment
+- Thread-safe message handling with C++17
+- Automatic retry and acknowledgment (ACK)
+- Based on QGroundControl architecture
 
 ✅ **Vehicle Control**
-
-- Arm/Disarm
-- Flight mode changes
+- Arm/Disarm with safety checks
+- Flight mode changes (all ArduPilot/PX4 modes)
 - Guided commands (Takeoff, Land, RTL, Goto)
-- Manual control input
+- Manual control input (joystick/RC)
 
 ✅ **Real-time Telemetry**
-
-- Position (GPS)
+- Position (GPS, altitude, heading)
 - Attitude (Roll, Pitch, Yaw)
-- Velocity (Ground, Air, Climb)
-- Battery status
-- Flight status
+- Velocity (Ground speed, Air speed, Climb rate)
+- Battery status (voltage, remaining %)
+- GPS status (fix type, satellites)
+- Flight status (armed, flying, mode)
+
+✅ **Parameter Management**
+- Get/Set vehicle parameters
+- Type-safe conversion (INT8, UINT8, INT16, UINT16, INT32, UINT32, REAL32)
+- Parameter cache for fast access
 
 ✅ **Mission Management**
-
 - Start/Stop missions
 - Set current waypoint
 - Clear missions
 
 ✅ **Advanced Features**
+- Camera trigger control
+- Gimbal control (pitch, yaw)
+- Data stream rate configuration
+- Custom MAVLink commands
 
-- Parameter get/set
-- Camera trigger
-- Gimbal control
-- Data stream requests
-
-## Installation
+## 📦 Installation
 
 ```bash
 npm install react-native-mavlink
@@ -54,34 +56,72 @@ cd ios && pod install
 
 ### Android
 
-No additional steps required.
+No additional steps required. The native module is automatically linked.
 
-## Quick Start
+## 🚀 Quick Start
 
 ### 1. Connect to Vehicle
 
 ```typescript
 import { mavlink, connectUDP, getTelemetry } from 'react-native-mavlink'
 
-// Connect via UDP (default for SITL)
-const connected = await connectUDP('127.0.0.1', 14550)
+// Connect via UDP (SITL or MAVProxy)
+const connected = await connectUDP('10.0.2.2', 14550) // Android Emulator
+// const connected = await connectUDP('127.0.0.1', 14550) // iOS Simulator
+// const connected = await connectUDP('192.168.1.100', 14550) // Real device
 
-// Or connect via Serial
+// Or connect via Serial (Android only, requires USB OTG)
 import { connectSerial } from 'react-native-mavlink'
-const connected = await connectSerial('/dev/ttyUSB0', 57600)
+const connected = await connectSerial('/dev/ttyUSB0', 115200)
 
 // Or connect via TCP
 import { connectTCP } from 'react-native-mavlink'
 const connected = await connectTCP('192.168.1.100', 5760)
 ```
 
-### 2. Get Telemetry
+**Important Network Notes**:
+- **Android Emulator**: Use `10.0.2.2` to access Windows/Mac host machine
+- **iOS Simulator**: Use `127.0.0.1` (shares network with host)
+- **Real Device**: Use actual IP address of computer running MAVProxy/SITL
+
+### 2. Connect to Real Drone
+
+If you have a real drone connected to your computer via USB/Serial:
+
+**Step 1**: Install MAVProxy to bridge serial port to UDP
+
+```bash
+pip install MAVProxy
+```
+
+**Step 2**: Bridge drone serial port to UDP
+
+```bash
+# Windows (COM port)
+mavproxy.py --master=COM5 --baudrate=115200 --out=udp:0.0.0.0:14550
+
+# Linux/Mac (USB port)
+mavproxy.py --master=/dev/ttyUSB0 --baudrate=115200 --out=udp:0.0.0.0:14550
+```
+
+**Step 3**: Connect from React Native app
 
 ```typescript
-// Get all telemetry at once
+// Android Emulator
+await connectUDP('10.0.2.2', 14550)
+
+// Real device on same WiFi
+await connectUDP('192.168.1.xxx', 14550) // Your computer's IP
+```
+
+### 3. Get Telemetry
+
+```typescript
+// Get all telemetry at once (recommended for UI updates)
 const telemetry = getTelemetry()
-console.log(telemetry.position.latitude)
-console.log(telemetry.attitude.roll)
+console.log(telemetry.position.latitude)    // GPS latitude
+console.log(telemetry.attitude.roll)        // Roll angle
+console.log(telemetry.battery.remaining)    // Battery %
 
 // Or get individual values
 const lat = mavlink.getLatitude()
@@ -89,36 +129,36 @@ const armed = mavlink.isArmed()
 const mode = mavlink.getFlightMode()
 ```
 
-### 3. Control Vehicle
+### 4. Control Vehicle
 
 ```typescript
-// Arm
+// Arm vehicle
 await mavlink.setArmed(true, false)
 
-// Switch to GUIDED mode
+// Switch to GUIDED mode (required for guided commands)
 await mavlink.setFlightMode('GUIDED')
 
 // Takeoff to 10 meters
 await mavlink.guidedTakeoff(10)
 
-// Goto coordinate
+// Goto GPS coordinate
 await mavlink.guidedGotoCoordinate({
   latitude: 47.3977,
   longitude: 8.5456,
   altitude: 50,
 })
 
-// Land
+// Land at current position
 await mavlink.guidedLand()
 
-// Return to launch
+// Return to launch point
 await mavlink.guidedRTL(false)
 
-// Disarm
+// Disarm vehicle
 await mavlink.setArmed(false, false)
 ```
 
-### 4. Real-time Updates
+### 5. Real-time Updates (10Hz)
 
 ```typescript
 import { useEffect, useState } from 'react'
@@ -127,7 +167,7 @@ function DroneStatus() {
   const [telemetry, setTelemetry] = useState(null)
 
   useEffect(() => {
-    // Update at 10Hz
+    // Update at 10Hz (every 100ms)
     const interval = setInterval(() => {
       if (mavlink.isConnected()) {
         setTelemetry(getTelemetry())
@@ -137,17 +177,36 @@ function DroneStatus() {
     return () => clearInterval(interval)
   }, [])
 
+  if (!telemetry) return <Text>No telemetry</Text>
+
   return (
     <View>
-      <Text>Altitude: {telemetry?.position.altitude}m</Text>
-      <Text>Speed: {telemetry?.velocity.groundSpeed}m/s</Text>
-      <Text>Battery: {telemetry?.battery.remaining}%</Text>
+      <Text>Altitude: {telemetry.position.altitude.toFixed(2)}m</Text>
+      <Text>Speed: {telemetry.velocity.groundSpeed.toFixed(1)}m/s</Text>
+      <Text>Battery: {telemetry.battery.remaining.toFixed(0)}%</Text>
+      <Text>GPS Sats: {telemetry.gps.satellites}</Text>
+      <Text>Armed: {telemetry.status.armed ? 'YES' : 'NO'}</Text>
+      <Text>Mode: {telemetry.status.flightMode}</Text>
     </View>
   )
 }
 ```
 
-## API Reference
+### 6. Parameters
+
+```typescript
+// Get parameter
+const value = await mavlink.getParameter('WPNAV_SPEED')
+console.log('Nav speed:', value, 'cm/s')
+
+// Set parameter
+await mavlink.setParameter('WPNAV_SPEED', 500) // 5 m/s
+
+// Refresh all parameters from vehicle
+await mavlink.refreshParameters()
+```
+
+## 📚 API Reference
 
 ### Connection
 
@@ -158,53 +217,91 @@ Connect to vehicle with custom configuration.
 ```typescript
 const config = {
   type: 1, // 0=SERIAL, 1=UDP, 2=TCP
-  address: '127.0.0.1',
+  address: '10.0.2.2', // Android Emulator to host
   port: 14550,
-  baudRate: 57600, // Only for serial
+  baudRate: 115200, // Only for serial
 }
 await mavlink.connectWithConfig(config)
 ```
 
+**Helper functions:**
+```typescript
+// UDP (most common)
+await connectUDP('10.0.2.2', 14550)
+
+// Serial (Android only, requires USB OTG)
+await connectSerial('/dev/ttyUSB0', 115200)
+
+// TCP
+await connectTCP('192.168.1.100', 5760)
+```
+
 #### `disconnect(): Promise<void>`
 
-Disconnect from vehicle.
+Disconnect from vehicle and clean up resources.
+
+```typescript
+await mavlink.disconnect()
+```
 
 #### `isConnected(): boolean`
 
-Check if connected to vehicle.
+Check if connected to vehicle (socket connected AND received HEARTBEAT).
+
+```typescript
+if (mavlink.isConnected()) {
+  // Ready to send commands
+}
+```
 
 ### Telemetry Getters
 
-All getters are synchronous and return current cached values:
+All getters are **synchronous** and return current cached values updated in real-time:
 
+**Position:**
 - `getLatitude(): number` - GPS latitude (degrees)
 - `getLongitude(): number` - GPS longitude (degrees)
 - `getAltitude(): number` - Altitude AMSL (meters)
 - `getHeading(): number` - Heading (0-360 degrees)
+
+**Velocity:**
 - `getGroundSpeed(): number` - Ground speed (m/s)
 - `getAirSpeed(): number` - Air speed (m/s)
-- `getClimbRate(): number` - Vertical speed (m/s)
-- `getRoll(): number` - Roll angle (degrees)
-- `getPitch(): number` - Pitch angle (degrees)
-- `getYaw(): number` - Yaw angle (degrees)
+- `getClimbRate(): number` - Vertical speed (m/s, positive = climbing)
+
+**Attitude:**
+- `getRoll(): number` - Roll angle (degrees, -180 to 180)
+- `getPitch(): number` - Pitch angle (degrees, -90 to 90)
+- `getYaw(): number` - Yaw angle (degrees, 0-360)
+
+**Battery:**
 - `getBatteryVoltage(id: number): number` - Battery voltage (V)
 - `getBatteryRemaining(id: number): number` - Battery remaining (%)
-- `getGPSFixType(): number` - GPS fix type (0-6)
-- `getGPSSatelliteCount(): number` - Number of satellites
+
+**GPS:**
+- `getGPSFixType(): number` - GPS fix type (0=No fix, 3=3D fix, 4=DGPS, 5=RTK)
+- `getGPSSatelliteCount(): number` - Number of visible satellites
+
+**Status:**
 - `isArmed(): boolean` - Armed status
-- `isFlying(): boolean` - Flying status
-- `getFlightMode(): string` - Current flight mode
-- `getSystemId(): number` - MAVLink system ID
-- `getComponentId(): number` - MAVLink component ID
+- `isFlying(): boolean` - Flying status (based on throttle and altitude)
+- `getFlightMode(): string` - Current flight mode (e.g., "GUIDED", "AUTO", "RTL")
+- `getSystemId(): number` - MAVLink system ID (default: 1)
+- `getComponentId(): number` - MAVLink component ID (default: 1)
+
+**Helper function for all telemetry:**
+```typescript
+const telemetry = getTelemetry() // Returns object with all values organized by category
+```
 
 ### Vehicle Control
 
 #### `setArmed(arm: boolean, force: boolean): Promise<boolean>`
 
-Arm or disarm vehicle.
+Arm or disarm vehicle. Force flag bypasses safety checks (use with caution).
 
 ```typescript
-await mavlink.setArmed(true, false) // Arm normally
+await mavlink.setArmed(true, false) // Arm with pre-arm checks
 await mavlink.setArmed(false, true) // Force disarm
 ```
 
@@ -380,12 +477,12 @@ await mavlink.requestDataStreamParams({
 
 #### `sendCommandParams(params: CommandParams): Promise<boolean>`
 
-Send raw MAVLink command.
+Send raw MAVLink command with full parameter control.
 
 ```typescript
 await mavlink.sendCommandParams({
   command: 400, // MAV_CMD_COMPONENT_ARM_DISARM
-  param1: 1,
+  param1: 1,    // 1 = arm, 0 = disarm
   param2: 0,
   param3: 0,
   param4: 0,
@@ -395,9 +492,41 @@ await mavlink.sendCommandParams({
 })
 ```
 
-## Testing with SITL
+## 🧪 Testing
 
-To test without real hardware, use ArduPilot SITL:
+### Option 1: Real Drone via MAVProxy (Recommended)
+
+**Requirements:**
+- Drone with USB/Serial connection
+- Windows/Linux/Mac computer
+- MAVProxy installed
+
+**Setup:**
+```bash
+# Install MAVProxy
+pip install MAVProxy
+
+# Bridge drone to UDP
+mavproxy.py --master=COM5 --baudrate=115200 --out=udp:0.0.0.0:14550
+
+# Connect from app
+await connectUDP('10.0.2.2', 14550) // Android Emulator
+```
+
+**Check serial port settings:**
+```bash
+# Windows
+mode COM5
+
+# Linux/Mac
+stty -F /dev/ttyUSB0
+
+# Should show: 115200 baud, 8 data bits, 1 stop bit, no parity
+```
+
+### Option 2: ArduPilot SITL
+
+For testing without real hardware:
 
 ```bash
 # Install ArduPilot
@@ -408,103 +537,316 @@ cd ardupilot
 ./waf configure --board sitl
 ./waf copter
 
-# Run SITL
+# Run SITL (creates virtual drone at 127.0.0.1:14550)
 cd ArduCopter
 ../Tools/autotest/sim_vehicle.py --console --map
 
-# In your React Native app
+# In your React Native app (iOS Simulator)
 await connectUDP('127.0.0.1', 14550)
+
+# Or Android Emulator
+await connectUDP('10.0.2.2', 14550)
 ```
 
-## Architecture
+### Option 3: Mission Planner TCP
+
+Connect via Mission Planner's TCP output:
 
 ```
-┌─────────────────────────────────────┐
-│      React Native (TypeScript)      │
-│     mavlink.guidedTakeoff(10)       │
-└──────────────┬──────────────────────┘
-               │ Nitro Bridge
-┌──────────────▼──────────────────────┐
-│        HybridMAVLink (C++)          │
-│  ┌─────────────────────────────┐   │
-│  │    ConnectionManager        │   │
-│  │  - UDP/TCP/Serial           │   │
-│  │  - Send/Receive threads     │   │
-│  └─────────────────────────────┘   │
-│  ┌─────────────────────────────┐   │
-│  │      VehicleState           │   │
-│  │  - Thread-safe telemetry    │   │
-│  │  - Message handlers         │   │
-│  └─────────────────────────────┘   │
-│  ┌─────────────────────────────┐   │
-│  │    CommandExecutor          │   │
-│  │  - Retry logic              │   │
-│  │  - ACK handling             │   │
-│  └─────────────────────────────┘   │
-└─────────────────────────────────────┘
-               │
-┌──────────────▼──────────────────────┐
-│         MAVLink v2.0 Protocol       │
-│      (UDP/TCP/Serial Transport)     │
-└─────────────────────────────────────┘
-               │
-┌──────────────▼──────────────────────┐
-│    ArduPilot / PX4 Autopilot        │
-└─────────────────────────────────────┘
+1. Mission Planner → CTRL+F → "MAVLink"
+2. Enable "TCP Server" port 5760
+3. In app: await connectTCP('192.168.1.xxx', 5760)
 ```
 
-## Troubleshooting
+## 🏗️ Architecture
+
+Built with high-performance C++17 and React Native Nitro Modules:
+
+```
+┌─────────────────────────────────────────────────┐
+│      React Native App (TypeScript)              │
+│      mavlink.guidedTakeoff(10) → Promise        │
+└────────────────────┬────────────────────────────┘
+                     │ Nitro Bridge (Zero-copy)
+┌────────────────────▼────────────────────────────┐
+│           HybridMAVLink (C++17)                 │
+│  ┌──────────────────────────────────────────┐  │
+│  │     ConnectionManager (Thread-safe)      │  │
+│  │  • UDP: Non-blocking sockets             │  │
+│  │  • TCP: Connect timeout, blocking I/O    │  │
+│  │  • Serial: Windows DCB, Linux termios    │  │
+│  │  • Receive thread (continuous)           │  │
+│  │  • Send queue with mutex protection      │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │      VehicleState (Atomic + Mutex)       │  │
+│  │  • Real-time telemetry cache             │  │
+│  │  • 18 getters (thread-safe)              │  │
+│  │  • ArduPilot quirks (lat/lon=0 fix)      │  │
+│  │  • Message routing (10 message types)    │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │    CommandExecutor (Retry + ACK)         │  │
+│  │  • 3s timeout, 3 retries                 │  │
+│  │  • Confirmation++ on retry (QGC logic)   │  │
+│  │  • ACK matching by command ID            │  │
+│  │  • Promise-based async API               │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │    ParameterManager (Cache + Type)       │  │
+│  │  • Parameter cache (name → value)        │  │
+│  │  • Type conversion (INT/UINT/REAL32)     │  │
+│  │  • mavlink_param_union_t wire format     │  │
+│  └──────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+                     │ MAVLink v2.0
+┌────────────────────▼────────────────────────────┐
+│         Network Transport Layer                 │
+│   UDP (14550) / TCP (5760) / Serial (115200)    │
+└─────────────────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────┐
+│    ArduPilot / PX4 Flight Controller            │
+│    (Copter, Plane, Rover, Sub)                  │
+└─────────────────────────────────────────────────┘
+```
+
+**Key Implementation Details:**
+- **Thread-safe**: std::atomic for simple values, std::mutex for complex data
+- **Zero-copy**: Nitro bridge minimizes JS ↔ C++ overhead
+- **QGC-validated**: Logic compared against QGroundControl Vehicle.cc
+- **Cross-platform**: Windows (DCB), Linux (termios), Android NDK, iOS
+
+## 🐛 Troubleshooting
 
 ### Connection Issues
 
+**Problem**: `connectUDP()` returns `true` but `isConnected()` returns `false`
+
+**Solution**: Wait for HEARTBEAT message from vehicle (1-2 seconds)
+
 **Problem**: Cannot connect to vehicle
 
-**Solutions**:
+**Solution**: Wait for HEARTBEAT message from vehicle (1-2 seconds)
 
-- Check IP address and port (default SITL: `127.0.0.1:14550`)
-- Verify firewall settings
-- For serial, check permissions: `sudo chmod 666 /dev/ttyUSB0`
-- Enable MAVLink output in autopilot parameters
+```typescript
+const success = await connectUDP('10.0.2.2', 14550)
+console.log('Socket connected:', success) // true
+
+// Wait a bit for HEARTBEAT
+setTimeout(() => {
+  console.log('MAVLink connected:', mavlink.isConnected()) // Should be true
+}, 2000)
+```
+
+**Problem**: Android Emulator cannot connect
+
+**Solution**: Use `10.0.2.2` instead of `127.0.0.1`, and ensure MAVProxy binds to `0.0.0.0`:
+
+```bash
+# ❌ Wrong
+mavproxy.py --master=COM5 --baudrate=115200 --out=udp:127.0.0.1:14550
+
+# ✅ Correct
+mavproxy.py --master=COM5 --baudrate=115200 --out=udp:0.0.0.0:14550
+```
+
+**Problem**: Cannot connect to serial port
+
+**Solution**: 
+```bash
+# Linux: Add user to dialout group
+sudo usermod -a -G dialout $USER
+
+# Check port permissions
+ls -l /dev/ttyUSB0
+
+# Fix permissions
+sudo chmod 666 /dev/ttyUSB0
+
+# Check baudrate
+stty -F /dev/ttyUSB0
+```
+
+**Problem**: Firewall blocking UDP
+
+**Solution**:
+```bash
+# Windows
+netsh advfirewall firewall add rule name="MAVLink UDP" dir=in action=allow protocol=UDP localport=14550
+
+# Linux
+sudo ufw allow 14550/udp
+```
 
 ### No Telemetry Updates
 
-**Problem**: `mavlink.isConnected()` returns true but telemetry is 0
+**Problem**: `isConnected() = true` but telemetry values are 0
 
-**Solutions**:
+**Cause**: Vehicle not sending telemetry messages at sufficient rate
 
-- Wait for HEARTBEAT message (up to 1 second)
-- Request data streams: `await mavlink.requestDataStreamParams({ streamId: 0, rateHz: 4 })`
-- Check if vehicle is sending messages (use MAVLink inspector)
+**Solution**:
+```typescript
+// Option 1: Request data streams (ArduPilot)
+await mavlink.requestDataStreamParams({ 
+  streamId: 0,  // All streams
+  rateHz: 4     // 4Hz update rate
+})
+
+// Option 2: Set message rates (PX4, modern ArduPilot)
+// Use Mission Planner or QGC to configure stream rates
+```
+
+**Problem**: Telemetry updates only once
+
+**Cause**: Not polling frequently enough
+
+**Solution**:
+```typescript
+// Update at 10Hz minimum
+setInterval(() => {
+  if (mavlink.isConnected()) {
+    const telemetry = getTelemetry()
+    // Update UI
+  }
+}, 100) // 100ms = 10Hz
+```
 
 ### Commands Not Working
 
-**Problem**: Commands return true but nothing happens
+**Problem**: `setArmed(true)` returns `true` but vehicle not arming
 
-**Solutions**:
+**Cause**: Pre-arm checks failing
 
-- Ensure vehicle is in correct mode (e.g., GUIDED for goto commands)
-- Check if vehicle is armed
-- Verify GPS lock (required for position commands)
-- Check autopilot logs for errors
+**Solution**:
+```typescript
+// Check pre-arm status
+const mode = mavlink.getFlightMode()
+const gps = mavlink.getGPSFixType()
+const sats = mavlink.getGPSSatelliteCount()
 
-## Contributing
+console.log('Mode:', mode)        // Should not be in failsafe
+console.log('GPS Fix:', gps)      // Should be 3 (3D fix) or higher
+console.log('Satellites:', sats)  // Should be 6+ for good lock
 
-Contributions are welcome! Please open an issue or submit a pull request.
+// Force arm (bypasses checks - DANGER!)
+await mavlink.setArmed(true, true)
+```
 
-## License
+**Problem**: `guidedTakeoff()` rejected
 
-MIT
+**Cause**: Not in GUIDED mode
 
-## Credits
+**Solution**:
+```typescript
+// Must switch to GUIDED first
+await mavlink.setFlightMode('GUIDED')
+await new Promise(r => setTimeout(r, 500)) // Wait for mode change
+await mavlink.guidedTakeoff(10)
+```
+
+**Problem**: Commands timeout (no ACK)
+
+**Cause**: System/Component ID mismatch or communication issue
+
+**Solution**:
+```typescript
+// Check IDs
+console.log('System ID:', mavlink.getSystemId())      // Should be 1
+console.log('Component ID:', mavlink.getComponentId()) // Should be 1
+
+// Verify two-way communication
+// MAVProxy should show: "Sending heartbeat to 10.0.2.2:14550"
+```
+
+### ArduPilot Quirks
+
+**Problem**: Position shows (0, 0) even with GPS lock
+
+**Cause**: ArduPilot sends bogus GLOBAL_POSITION_INT with lat/lon=0 when GPS initializing
+
+**Solution**: Library automatically handles this (see [HybridMAVLink.cpp](cpp/vehicle/VehicleState.cpp#L43-49))
+
+```cpp
+// Already implemented - no action needed
+if (position.lat == 0 && position.lon == 0) {
+  // Still update altitude, skip position
+  return;
+}
+```
+
+## 🤝 Contributing
+
+Contributions welcome! Areas for improvement:
+- [ ] iOS serial support (MFi protocol)
+- [ ] Mission upload/download
+- [ ] Event callbacks (onTelemetryUpdate, onConnectionLost)
+- [ ] Geofence management
+- [ ] Rally points
+- [ ] Camera control (video stream)
+
+Please open an issue or submit a PR!
+
+## 📄 License
+
+MIT - see LICENSE file for details
+
+## 🙏 Credits
 
 Built with:
+- **[React Native Nitro Modules](https://github.com/mrousavy/nitro)** - High-performance native bridge
+- **[MAVLink Protocol v2.0](https://mavlink.io/)** - Lightweight messaging protocol
+- **[QGroundControl](https://github.com/mavlink/qgroundcontrol)** - Reference implementation for logic validation
 
-- [React Native Nitro Modules](https://github.com/mrousavy/nitro)
-- [MAVLink Protocol](https://mavlink.io/)
-- Inspired by [QGroundControl](https://github.com/mavlink/qgroundcontrol)
+Special thanks to:
+- ArduPilot team for comprehensive MAVLink documentation
+- PX4 team for MAVLink v2.0 specification
+- Marc Rousavy for creating Nitro Modules
 
-## Support
+## 📊 Project Status
 
-- 📧 Email: support@example.com
-- 🐛 Issues: [GitHub Issues](https://github.com/yourname/react-native-mavlink/issues)
-- 📖 Docs: [Full Documentation](https://yourname.github.io/react-native-mavlink)
+**Version**: 0.0.2  
+**Status**: ✅ Production Ready
+
+**Tested With**:
+- ArduPilot Copter 4.5.x
+- PX4 1.14.x
+- React Native 0.83+
+- Android NDK 27.1
+- iOS 14+
+
+**Recent Updates** (Dec 2025):
+- ✅ Fixed isConnected() logic (system ID from HEARTBEAT)
+- ✅ ArduPilot lat/lon=0 quirk handling
+- ✅ QGC-validated message routing
+- ✅ Parameter management with type conversion
+- ✅ Command retry with confirmation increment
+- ✅ Compiler warnings cleanup
+- ✅ Cross-platform serial support (Windows DCB, Linux termios)
+
+## 📚 Documentation
+
+- [Quick Start Guide](QUICKSTART.md)
+- [API Reference](docs/API.md)
+- [Implementation Details](IMPLEMENTATION.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing Guide](CONTRIBUTING.md)
+
+## 💬 Community
+
+- **Discord**: [Join our community](#)
+- **Issues**: Report bugs or request features on [GitHub Issues](https://github.com/yourusername/react-native-mavlink/issues)
+- **Discussions**: Ask questions in [GitHub Discussions](https://github.com/yourusername/react-native-mavlink/discussions)
+
+## ⭐ Show Your Support
+
+If this library helps you build amazing drone applications, please:
+- ⭐ Star the repo on GitHub
+- 🐛 Report issues you encounter
+- 💡 Share feature ideas
+- 📝 Improve documentation
+- 🔧 Submit pull requests
+
+---
+
+**Made with ❤️ for the drone development community**
