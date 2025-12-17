@@ -31,18 +31,9 @@ public:
         // Setup connection callback  
         _connectionManager->setConnectionCallback([this](bool connected) {
             _isConnected = connected;
-            if (connected && _vehicleState->getSystemId() > 0) {
-                _commandExecutor = std::make_shared<CommandExecutor>(
-                    _connectionManager,
-                    _vehicleState->getSystemId(),
-                    _vehicleState->getComponentId()
-                );
-                _parameterManager = std::make_shared<ParameterManager>(
-                    _connectionManager,
-                    _vehicleState->getSystemId(),
-                    _vehicleState->getComponentId()
-                );
-            }
+            // Note: CommandExecutor and ParameterManager are now created when first message received
+            // This ensures we have valid system/component IDs from the vehicle
+        });
         });
         
         // Start timeout check thread

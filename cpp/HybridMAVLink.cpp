@@ -41,10 +41,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::connectWithConfig(const Connection
             
             if (success) {
                 _isConnected = true;
-                // Give system time to receive HEARTBEAT
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                
-                // Note: Data stream requests removed - handled by MAVLink HEARTBEAT
+                // Note: System/component IDs and managers will be initialized when first message received
             }
             
             promise->resolve(success);
@@ -633,6 +630,28 @@ void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
             mavlink_heartbeat_t heartbeat;
             mavlink_msg_heartbeat_decode(&message, &heartbeat);
             _vehicleState->handleHeartbeat(heartbeat);
+            
+            // First HEARTBEAT from vehicle - save system/component ID
+            // Based on QGC Vehicle.cc:454-458
+            if (_vehicleState->getSystemId() == 0) {
+                _vehicleState->setSystemId(message.sysid);
+                _vehicleState->setComponentId(message.compid);
+                
+                // Initialize CommandExecutor and ParameterManager now that we know target system
+                // Based on QGC Vehicle.cc:289-290
+                if (_isConnected) {
+                    _commandExecutor = std::make_shared<CommandExecutor>(
+                        _connectionManager,
+                        message.sysid,
+                        message.compid
+                    );
+                    _parameterManager = std::make_shared<ParameterManager>(
+                        _connectionManager,
+                        message.sysid,
+                        message.compid
+                    );
+                }
+            }
             break;
         }
         case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
