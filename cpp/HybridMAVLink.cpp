@@ -183,7 +183,7 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::setFlightMode(const std::string& m
     auto promise = Promise<bool>::create();
     promise->reject(std::make_exception_ptr(std::runtime_error(
         "setFlightMode with string not implemented. Use MAV_CMD_DO_SET_MODE with custom_mode directly."
-    ));
+    )));
     return promise;
 }
 
@@ -609,11 +609,16 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::executeCommand(
     
     _commandExecutor->sendCommand(
         command, param1, param2, param3, param4, param5, param6, param7,
-        [promise](CommandResult result, const std::string& message) {
-            if (result == CommandResult::ACCEPTED || result == CommandResult::IN_PROGRESS) {
+        [promise](CommandResult result, uint8_t progress) {
+            if (result == CommandResult::SUCCESS || result == CommandResult::IN_PROGRESS) {
                 promise->resolve(true);
             } else {
-                promise->reject(std::make_exception_ptr(std::runtime_error(message)));;
+                // Map CommandResult to error message
+                std::string msg = "Command failed";
+                if (result == CommandResult::FAILED) msg = "Command failed";
+                else if (result == CommandResult::TIMEOUT) msg = "Command timeout";
+                else if (result == CommandResult::DENIED) msg = "Command denied";
+                promise->reject(std::make_exception_ptr(std::runtime_error(msg)));
             }
         }
     );
@@ -622,25 +627,72 @@ std::shared_ptr<Promise<bool>> HybridMAVLink::executeCommand(
 }
 
 void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
-    // Route messages to appropriate handlers
-    _vehicleState->handleMessage(message);
-    
-    if (_commandExecutor) {
-        _commandExecutor->handleMessage(message);
-    }
-    
-    // Handle parameter messages
-    if (_parameterManager && message.msgid == MAVLINK_MSG_ID_PARAM_VALUE) {
-        mavlink_param_value_t paramValue;
-        mavlink_msg_param_value_decode(&message, &paramValue);
-        _parameterManager->handleParamValue(paramValue);
-    }
-    
-    // Handle mission-specific messages
-    if (message.msgid == MAVLINK_MSG_ID_MISSION_CURRENT) {
-        mavlink_mission_current_t current;
-        mavlink_msg_mission_current_decode(&message, &current);
-        _currentMissionItem = current.seq;
+    // Route telemetry messages to VehicleState
+    switch (message.msgid) {
+        case MAVLINK_MSG_ID_HEARTBEAT: {
+            mavlink_heartbeat_t heartbeat;
+            mavlink_msg_heartbeat_decode(&message, &heartbeat);
+            _vehicleState->handleHeartbeat(heartbeat);
+            break;
+        }
+        case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
+            mavlink_global_position_int_t position;
+            mavlink_msg_global_position_int_decode(&message, &position);
+            _vehicleState->handleGlobalPositionInt(position);
+            break;
+        }
+        case MAVLINK_MSG_ID_ATTITUDE: {
+            mavlink_attitude_t attitude;
+            mavlink_msg_attitude_decode(&message, &attitude);
+            _vehicleState->handleAttitude(attitude);
+            break;
+        }
+        case MAVLINK_MSG_ID_BATTERY_STATUS: {
+            mavlink_battery_status_t battery;
+            mavlink_msg_battery_status_decode(&message, &battery);
+            _vehicleState->handleBatteryStatus(battery);
+            break;
+        }
+        case MAVLINK_MSG_ID_GPS_RAW_INT: {
+            mavlink_gps_raw_int_t gps;
+            mavlink_msg_gps_raw_int_decode(&message, &gps);
+            _vehicleState->handleGPSRawInt(gps);
+            break;
+        }
+        case MAVLINK_MSG_ID_VFR_HUD: {
+            mavlink_vfr_hud_t vfr;
+            mavlink_msg_vfr_hud_decode(&message, &vfr);
+            _vehicleState->handleVFRHUD(vfr);
+            break;
+        }
+        case MAVLINK_MSG_ID_SYS_STATUS: {
+            mavlink_sys_status_t sysStatus;
+            mavlink_msg_sys_status_decode(&message, &sysStatus);
+            _vehicleState->handleSysStatus(sysStatus);
+            break;
+        }
+        case MAVLINK_MSG_ID_COMMAND_ACK: {
+            if (_commandExecutor) {
+                mavlink_command_ack_t ack;
+                mavlink_msg_command_ack_decode(&message, &ack);
+                _commandExecutor->handleCommandAck(ack);
+            }
+            break;
+        }
+        case MAVLINK_MSG_ID_PARAM_VALUE: {
+            if (_parameterManager) {
+                mavlink_param_value_t paramValue;
+                mavlink_msg_param_value_decode(&message, &paramValue);
+                _parameterManager->handleParamValue(paramValue);
+            }
+            break;
+        }
+        case MAVLINK_MSG_ID_MISSION_CURRENT: {
+            mavlink_mission_current_t current;
+            mavlink_msg_mission_current_decode(&message, &current);
+            _currentMissionItem = current.seq;
+            break;
+        }
     }
 }
 
