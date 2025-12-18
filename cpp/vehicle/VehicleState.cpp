@@ -214,6 +214,25 @@ uint32_t VehicleState::getSensorsPresentBits() const { return _sensorsPresentBit
 uint32_t VehicleState::getSensorsEnabledBits() const { return _sensorsEnabledBits.load(); }
 uint32_t VehicleState::getSensorsHealthBits() const { return _sensorsHealthBits.load(); }
 
+// Connection Health
+bool VehicleState::isHeartbeatTimeout() const {
+    uint64_t lastHeartbeat = _lastHeartbeatMs.load();
+    if (lastHeartbeat == 0) {
+        // Never received heartbeat yet
+        return false;
+    }
+    uint64_t timeSinceLastHeartbeat = getCurrentTimeMs() - lastHeartbeat;
+    return timeSinceLastHeartbeat > HEARTBEAT_TIMEOUT_MS;
+}
+
+uint64_t VehicleState::getTimeSinceLastHeartbeat() const {
+    uint64_t lastHeartbeat = _lastHeartbeatMs.load();
+    if (lastHeartbeat == 0) {
+        return 0;
+    }
+    return getCurrentTimeMs() - lastHeartbeat;
+}
+
 // ============================================================================
 // Setters
 // ============================================================================

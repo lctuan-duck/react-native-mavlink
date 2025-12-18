@@ -38,15 +38,25 @@ constexpr float ARM_DISARM_FORCE_PARAM = 21196.0f; // Force arm/disarm parameter
 
 std::shared_ptr<Promise<bool>> HybridMAVLink::connectWithConfig(const ConnectionConfig& config) {
     auto promise = Promise<bool>::create();
-    
+
+    // Setup auto-reconnect if requested
+    if (config.autoReconnect.has_value() && config.autoReconnect.value()) {
+        int maxAttempts = config.maxReconnectAttempts.has_value() ?
+            static_cast<int>(config.maxReconnectAttempts.value()) : 0;
+        int delayMs = config.reconnectDelayMs.has_value() ?
+            static_cast<int>(config.reconnectDelayMs.value()) : 5000;
+
+        _connectionManager->setAutoReconnect(true, maxAttempts, delayMs);
+    }
+
     // Create thread to connect async
     std::thread([this, config, promise]() {
         bool success = false;
-        
+
         try {
             // Cast double to ConnectionType enum
             ConnectionType connType = static_cast<ConnectionType>(static_cast<int>(config.type));
-            
+
             // Use public connect() method with all parameters
             success = _connectionManager->connect(
                 connType,
@@ -124,6 +134,14 @@ bool HybridMAVLink::isConnected() {
     // After connectWithConfig() resolves true, this should always return true
     // because we already waited for HEARTBEAT in connectWithConfig()
     return _isConnected && _vehicleState->getSystemId() > 0;
+}
+
+bool HybridMAVLink::isHeartbeatTimeout() {
+    return _vehicleState->isHeartbeatTimeout();
+}
+
+double HybridMAVLink::getTimeSinceLastHeartbeat() {
+    return static_cast<double>(_vehicleState->getTimeSinceLastHeartbeat());
 }
 
 // ============================================================================
@@ -864,15 +882,49 @@ void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
 }
 
 void HybridMAVLink::timeoutCheckLoop() {
+    bool previouslyTimedOut = false;
+
     while (_shouldRun) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        
+
         if (_commandExecutor) {
             _commandExecutor->checkTimeouts();
         }
-        
+
         if (_parameterManager) {
             _parameterManager->checkTimeouts();
+        }
+
+        // Check heartbeat timeout (based on QGC VehicleLinkManager)
+        // Only check if we were previously connected
+        if (_isConnected && _vehicleState->getSystemId() > 0) {
+            bool isTimedOut = _vehicleState->isHeartbeatTimeout();
+
+            // Trigger reconnect on first timeout detection
+            if (isTimedOut && !previouslyTimedOut) {
+                std::cerr << "Heartbeat timeout detected (>3.5s) - Connection lost!" << std::endl;
+
+                // Mark as disconnected (always, regardless of auto-reconnect setting)
+                _isConnected = false;
+
+                // Trigger auto-reconnect if enabled
+                if (_connectionManager->isAutoReconnectEnabled()) {
+                    std::cout << "Starting auto-reconnect due to heartbeat timeout..." << std::endl;
+                    _connectionManager->startReconnect();
+                } else {
+                    std::cout << "Auto-reconnect disabled - connection marked as lost" << std::endl;
+                }
+
+                previouslyTimedOut = true;
+            } else if (!isTimedOut && previouslyTimedOut) {
+                // Heartbeat restored - just log it
+                // Connection callback will handle setting _isConnected = true
+                std::cout << "Heartbeat restored - Connection healthy" << std::endl;
+                previouslyTimedOut = false;
+            }
+        } else {
+            // Reset timeout flag if not connected
+            previouslyTimedOut = false;
         }
     }
 }

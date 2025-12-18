@@ -17,6 +17,8 @@ namespace margelo::nitro::mavlink {
       prototype.registerHybridMethod("connectWithConfig", &HybridMAVLinkSpec::connectWithConfig);
       prototype.registerHybridMethod("disconnect", &HybridMAVLinkSpec::disconnect);
       prototype.registerHybridMethod("isConnected", &HybridMAVLinkSpec::isConnected);
+      prototype.registerHybridMethod("isHeartbeatTimeout", &HybridMAVLinkSpec::isHeartbeatTimeout);
+      prototype.registerHybridMethod("getTimeSinceLastHeartbeat", &HybridMAVLinkSpec::getTimeSinceLastHeartbeat);
       prototype.registerHybridMethod("getLatitude", &HybridMAVLinkSpec::getLatitude);
       prototype.registerHybridMethod("getLongitude", &HybridMAVLinkSpec::getLongitude);
       prototype.registerHybridMethod("getAltitude", &HybridMAVLinkSpec::getAltitude);

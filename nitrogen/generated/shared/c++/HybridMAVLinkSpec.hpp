@@ -75,6 +75,8 @@ namespace margelo::nitro::mavlink {
       virtual std::shared_ptr<Promise<bool>> connectWithConfig(const ConnectionConfig& config) = 0;
       virtual std::shared_ptr<Promise<void>> disconnect() = 0;
       virtual bool isConnected() = 0;
+      virtual bool isHeartbeatTimeout() = 0;
+      virtual double getTimeSinceLastHeartbeat() = 0;
       virtual double getLatitude() = 0;
       virtual double getLongitude() = 0;
       virtual double getAltitude() = 0;

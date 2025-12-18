@@ -54,7 +54,9 @@ public:
     std::shared_ptr<Promise<bool>> connectWithConfig(const ConnectionConfig& config) override;
     std::shared_ptr<Promise<void>> disconnect() override;
     bool isConnected() override;
-    
+    bool isHeartbeatTimeout() override;
+    double getTimeSinceLastHeartbeat() override;
+
     // ============================================================================
     // VEHICLE STATE & TELEMETRY
     // ============================================================================

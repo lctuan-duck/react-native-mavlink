@@ -81,11 +81,15 @@ public:
     uint32_t getSensorsPresentBits() const;
     uint32_t getSensorsEnabledBits() const;
     uint32_t getSensorsHealthBits() const;
-    
+
+    // Connection Health (based on QGC VehicleLinkManager)
+    bool isHeartbeatTimeout() const;  // Check if heartbeat timeout (>3.5s)
+    uint64_t getTimeSinceLastHeartbeat() const;  // Time since last heartbeat (ms)
+
     // ============================================================================
     // Setters
     // ============================================================================
-    
+
     void setSystemId(int systemId);
     void setComponentId(int componentId);
     void setFlightMode(const std::string& mode);
@@ -158,6 +162,9 @@ private:
     uint64_t getCurrentTimeMs() const;
     bool isArmedFromBaseMode(uint8_t baseMode) const;
     std::string flightModeFromCustomMode(uint32_t customMode, uint8_t autopilot) const;
+
+    // Constants (based on QGC VehicleLinkManager)
+    static constexpr uint64_t HEARTBEAT_TIMEOUT_MS = 3500;  // 3.5 seconds
 };
 
 } // namespace margelo::nitro::mavlink

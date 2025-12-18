@@ -21,6 +21,9 @@ export interface ConnectionConfig {
   address: string;
   port: number;
   baudRate: number;
+  autoReconnect?: boolean; // Enable auto-reconnect on connection loss (default: false)
+  maxReconnectAttempts?: number; // Max reconnect attempts, 0 = infinite (default: 0)
+  reconnectDelayMs?: number; // Initial reconnect delay in ms (default: 5000)
 }
 
 /**
@@ -110,6 +113,16 @@ export interface MAVLink extends HybridObject<{ ios: 'c++', android: 'c++' }> {
    * Check if connected to vehicle
    */
   isConnected(): boolean;
+
+  /**
+   * Check if heartbeat timeout (>3.5s without HEARTBEAT)
+   */
+  isHeartbeatTimeout(): boolean;
+
+  /**
+   * Get time since last heartbeat in milliseconds
+   */
+  getTimeSinceLastHeartbeat(): number;
 
   // ============================================================================
   // VEHICLE STATE & TELEMETRY

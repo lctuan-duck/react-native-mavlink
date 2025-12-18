@@ -26,6 +26,7 @@
 
 
 #include <string>
+#include <optional>
 
 namespace margelo::nitro::mavlink {
 
@@ -38,10 +39,13 @@ namespace margelo::nitro::mavlink {
     std::string address     SWIFT_PRIVATE;
     double port     SWIFT_PRIVATE;
     double baudRate     SWIFT_PRIVATE;
+    std::optional<bool> autoReconnect     SWIFT_PRIVATE;
+    std::optional<double> maxReconnectAttempts     SWIFT_PRIVATE;
+    std::optional<double> reconnectDelayMs     SWIFT_PRIVATE;
 
   public:
     ConnectionConfig() = default;
-    explicit ConnectionConfig(double type, std::string address, double port, double baudRate): type(type), address(address), port(port), baudRate(baudRate) {}
+    explicit ConnectionConfig(double type, std::string address, double port, double baudRate, std::optional<bool> autoReconnect, std::optional<double> maxReconnectAttempts, std::optional<double> reconnectDelayMs): type(type), address(address), port(port), baudRate(baudRate), autoReconnect(autoReconnect), maxReconnectAttempts(maxReconnectAttempts), reconnectDelayMs(reconnectDelayMs) {}
   };
 
 } // namespace margelo::nitro::mavlink
@@ -57,7 +61,10 @@ namespace margelo::nitro {
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, "type")),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, "address")),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, "port")),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, "baudRate"))
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, "baudRate")),
+        JSIConverter<std::optional<bool>>::fromJSI(runtime, obj.getProperty(runtime, "autoReconnect")),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, "maxReconnectAttempts")),
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, "reconnectDelayMs"))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::mavlink::ConnectionConfig& arg) {
@@ -66,6 +73,9 @@ namespace margelo::nitro {
       obj.setProperty(runtime, "address", JSIConverter<std::string>::toJSI(runtime, arg.address));
       obj.setProperty(runtime, "port", JSIConverter<double>::toJSI(runtime, arg.port));
       obj.setProperty(runtime, "baudRate", JSIConverter<double>::toJSI(runtime, arg.baudRate));
+      obj.setProperty(runtime, "autoReconnect", JSIConverter<std::optional<bool>>::toJSI(runtime, arg.autoReconnect));
+      obj.setProperty(runtime, "maxReconnectAttempts", JSIConverter<std::optional<double>>::toJSI(runtime, arg.maxReconnectAttempts));
+      obj.setProperty(runtime, "reconnectDelayMs", JSIConverter<std::optional<double>>::toJSI(runtime, arg.reconnectDelayMs));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -80,6 +90,9 @@ namespace margelo::nitro {
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, "address"))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, "port"))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, "baudRate"))) return false;
+      if (!JSIConverter<std::optional<bool>>::canConvert(runtime, obj.getProperty(runtime, "autoReconnect"))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, "maxReconnectAttempts"))) return false;
+      if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, "reconnectDelayMs"))) return false;
       return true;
     }
   };
