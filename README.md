@@ -438,10 +438,19 @@ All getters are **synchronous** and return current cached values updated in real
 **Status:**
 
 - `isArmed(): boolean` - Armed status
-- `isFlying(): boolean` - Flying status (based on throttle and altitude)
+- `isFlying(): boolean` - Flying status (uses EXTENDED_SYS_STATE when available)
+- `isLanding(): boolean` - Check if vehicle is currently landing **(NEW)**
+- `getLandedState(): number` - MAV_LANDED_STATE (0=UNDEFINED, 1=ON_GROUND, 2=IN_AIR, 3=TAKEOFF, 4=LANDING) **(NEW)**
 - `getFlightMode(): string` - Current flight mode (e.g., "GUIDED", "AUTO", "RTL")
 - `getSystemId(): number` - MAVLink system ID (default: 1)
 - `getComponentId(): number` - MAVLink component ID (default: 1)
+
+**Home Position (NEW):**
+
+- `getHomeLatitude(): number` - Home latitude (degrees)
+- `getHomeLongitude(): number` - Home longitude (degrees)
+- `getHomeAltitude(): number` - Home altitude (meters)
+- `hasHomePosition(): boolean` - Check if home position is set
 
 **Helper function for all telemetry:**
 
@@ -746,7 +755,7 @@ Built with high-performance C++17 and React Native Nitro Modules:
 │  ┌──────────────────────────────────────────┐  │
 │  │    CommandExecutor (Retry + ACK)         │  │
 │  │  • 3s timeout, 3 retries                 │  │
-│  │  • Confirmation++ on retry (QGC logic)   │  │
+│  │  • Confirmation++ on retry  │  │
 │  │  • ACK matching by command ID            │  │
 │  │  • Promise-based async API               │  │
 │  └──────────────────────────────────────────┘  │
@@ -773,7 +782,6 @@ Built with high-performance C++17 and React Native Nitro Modules:
 
 - **Thread-safe**: std::atomic for simple values, std::mutex for complex data
 - **Zero-copy**: Nitro bridge minimizes JS ↔ C++ overhead
-- **QGC-validated**: Logic compared against QGroundControl Vehicle.cc
 - **Cross-platform**: Windows (DCB), Linux (termios), Android NDK, iOS
 
 ## 🐛 Troubleshooting
@@ -856,7 +864,7 @@ await mavlink.requestDataStreamParams({
 })
 
 // Option 2: Set message rates (PX4, modern ArduPilot)
-// Use Mission Planner or QGC to configure stream rates
+// Use Mission Planner to configure stream rates
 ```
 
 **Problem**: Telemetry updates only once
@@ -989,7 +997,6 @@ Special thanks to:
 
 - ✅ Fixed isConnected() logic (system ID from HEARTBEAT)
 - ✅ ArduPilot lat/lon=0 quirk handling
-- ✅ QGC-validated message routing
 - ✅ Parameter management with type conversion
 - ✅ Command retry with confirmation increment
 - ✅ Compiler warnings cleanup
@@ -1022,3 +1029,15 @@ If this library helps you build amazing drone applications, please:
 ---
 
 **Made with ❤️ for the drone development community**
+
+## Contact & Support
+
+- **Author**: Le Cong Tuan
+- **Personal Email**: lctuan.dev@gmail.com
+- **Business Email**: tuan.le.e@ctuan.vn
+
+---
+
+**Version**: 0.0.2  
+**Last Updated**: 2025  
+**Status**: Beta - Core features implemented, additional features in progress

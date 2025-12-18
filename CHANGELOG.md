@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Home Position APIs (NEW)**
+  - `getHomeLatitude()` - Get home latitude
+  - `getHomeLongitude()` - Get home longitude
+  - `getHomeAltitude()` - Get home altitude
+  - `hasHomePosition()` - Check if home position is set
+  - Based on QGroundControl HOME_POSITION message handling
+
+- **Landed State APIs (NEW)**
+  - `isLanding()` - Check if vehicle is currently landing
+  - `getLandedState()` - Get MAV_LANDED_STATE enum value (0=UNDEFINED, 1=ON_GROUND, 2=IN_AIR, 3=TAKEOFF, 4=LANDING)
+  - Based on QGroundControl EXTENDED_SYS_STATE handling
+
+- **QGC-based Data Stream Improvements**
+  - Request individual data streams instead of MAV_DATA_STREAM_ALL for better compatibility
+  - Stream re-initialization when BATTERY_STATUS timeout (10 seconds)
+  - Based on QGroundControl APMFirmwarePlugin implementation
+
+- **Extended Battery Support**
+  - Support for batteries with 11-14 cells via voltages_ext field
+  - Based on QGroundControl BatteryFactGroupListModel implementation
+
 - **Flight Mode Control**
   - Implemented `setFlightMode()` with ArduPilot Copter mode mappings
   - Support for 28 flight modes (STABILIZE, GUIDED, RTL, AUTO, etc.)
@@ -18,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Based on QGroundControl ArduCopterFirmwarePlugin implementation
 
 ### Changed
+
+- **isFlying() Improved**
+  - Now uses EXTENDED_SYS_STATE landed_state when available
+  - Falls back to heuristic (altitude + climb rate) for older autopilots
 
 - **Connection Behavior (Breaking Change)**
   - `connectWithConfig()` now waits for vehicle HEARTBEAT before resolving
@@ -34,7 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Vehicle now correctly receives HEARTBEAT and replies with its own
   - Added background thread for periodic GCS HEARTBEAT transmission (1Hz)
   - Resolves issue where `isConnected()` remained false after UDP connect
-  
 - **Connection State Consistency**
   - Fixed race condition where `connectWithConfig()` returned true but `isConnected()` was false
   - Both methods now return consistent state after connection
