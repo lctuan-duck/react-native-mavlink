@@ -38,6 +38,12 @@ namespace margelo::nitro::mavlink {
       prototype.registerHybridMethod("getFlightMode", &HybridMAVLinkSpec::getFlightMode);
       prototype.registerHybridMethod("getSystemId", &HybridMAVLinkSpec::getSystemId);
       prototype.registerHybridMethod("getComponentId", &HybridMAVLinkSpec::getComponentId);
+      prototype.registerHybridMethod("getHomeLatitude", &HybridMAVLinkSpec::getHomeLatitude);
+      prototype.registerHybridMethod("getHomeLongitude", &HybridMAVLinkSpec::getHomeLongitude);
+      prototype.registerHybridMethod("getHomeAltitude", &HybridMAVLinkSpec::getHomeAltitude);
+      prototype.registerHybridMethod("hasHomePosition", &HybridMAVLinkSpec::hasHomePosition);
+      prototype.registerHybridMethod("isLanding", &HybridMAVLinkSpec::isLanding);
+      prototype.registerHybridMethod("getLandedState", &HybridMAVLinkSpec::getLandedState);
       prototype.registerHybridMethod("setArmed", &HybridMAVLinkSpec::setArmed);
       prototype.registerHybridMethod("setFlightMode", &HybridMAVLinkSpec::setFlightMode);
       prototype.registerHybridMethod("guidedTakeoff", &HybridMAVLinkSpec::guidedTakeoff);

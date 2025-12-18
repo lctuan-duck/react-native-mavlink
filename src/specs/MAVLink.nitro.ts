@@ -226,6 +226,45 @@ export interface MAVLink extends HybridObject<{ ios: 'c++', android: 'c++' }> {
   getComponentId(): number;
 
   // ============================================================================
+  // HOME POSITION 
+  // ============================================================================
+
+  /**
+   * Get home latitude
+   */
+  getHomeLatitude(): number;
+
+  /**
+   * Get home longitude
+   */
+  getHomeLongitude(): number;
+
+  /**
+   * Get home altitude
+   */
+  getHomeAltitude(): number;
+
+  /**
+   * Check if home position has been set
+   */
+  hasHomePosition(): boolean;
+
+  // ============================================================================
+  // LANDED STATE 
+  // ============================================================================
+
+  /**
+   * Check if vehicle is currently landing
+   */
+  isLanding(): boolean;
+
+  /**
+   * Get landed state (MAV_LANDED_STATE enum)
+   * 0=UNDEFINED, 1=ON_GROUND, 2=IN_AIR, 3=TAKEOFF, 4=LANDING
+   */
+  getLandedState(): number;
+
+  // ============================================================================
   // VEHICLE CONTROL - BASIC
   // ============================================================================
 

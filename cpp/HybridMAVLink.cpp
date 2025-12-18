@@ -224,6 +224,32 @@ double HybridMAVLink::getComponentId() {
     return _vehicleState->getComponentId();
 }
 
+// Home Position 
+double HybridMAVLink::getHomeLatitude() {
+    return _vehicleState->getHomeLatitude();
+}
+
+double HybridMAVLink::getHomeLongitude() {
+    return _vehicleState->getHomeLongitude();
+}
+
+double HybridMAVLink::getHomeAltitude() {
+    return _vehicleState->getHomeAltitude();
+}
+
+bool HybridMAVLink::hasHomePosition() {
+    return _vehicleState->hasHomePosition();
+}
+
+// Landed State (NEW - based on QGC EXTENDED_SYS_STATE)
+bool HybridMAVLink::isLanding() {
+    return _vehicleState->isLanding();
+}
+
+double HybridMAVLink::getLandedState() {
+    return _vehicleState->getLandedState();
+}
+
 // ============================================================================
 // VEHICLE CONTROL - BASIC
 // ============================================================================
@@ -878,6 +904,18 @@ void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
             _currentMissionItem = current.seq;
             break;
         }
+        case MAVLINK_MSG_ID_HOME_POSITION: {
+            mavlink_home_position_t home;
+            mavlink_msg_home_position_decode(&message, &home);
+            _vehicleState->handleHomePosition(home);
+            break;
+        }
+        case MAVLINK_MSG_ID_EXTENDED_SYS_STATE: {
+            mavlink_extended_sys_state_t extState;
+            mavlink_msg_extended_sys_state_decode(&message, &extState);
+            _vehicleState->handleExtendedSysState(extState);
+            break;
+        }
     }
 }
 
@@ -921,6 +959,20 @@ void HybridMAVLink::timeoutCheckLoop() {
                 // Connection callback will handle setting _isConnected = true
                 std::cout << "Heartbeat restored - Connection healthy" << std::endl;
                 previouslyTimedOut = false;
+            }
+            
+            // Stream re-initialization (based on QGC APMFirmwarePlugin lines 325-329)
+            // Re-request data streams if BATTERY_STATUS not received for 10 seconds
+            uint64_t timeSinceLastBattery = _vehicleState->getTimeSinceLastBatteryStatus();
+            if (timeSinceLastBattery > 10000 && timeSinceLastBattery < 15000) {
+                // Only re-init once per timeout (between 10-15 seconds)
+                #ifdef __ANDROID__
+                __android_log_print(ANDROID_LOG_WARN, "MAVLink", 
+                    "BATTERY_STATUS timeout (%llu ms) - Re-initializing streams", 
+                    (unsigned long long)timeSinceLastBattery);
+                #endif
+                std::cout << "BATTERY_STATUS timeout - Re-initializing data streams" << std::endl;
+                requestAllDataStreams();
             }
         } else {
             // Reset timeout flag if not connected
@@ -971,7 +1023,7 @@ void HybridMAVLink::sendGCSHeartbeat() {
 }
 
 void HybridMAVLink::requestAllDataStreams() {
-    // Request data streams at 4Hz (based on QGC default rates)
+    // Request individual data streams based on QGC APMFirmwarePlugin::initializeStreamRates
     // This is called automatically after first HEARTBEAT received
     
     if (_vehicleState->getSystemId() == 0) {
@@ -979,28 +1031,65 @@ void HybridMAVLink::requestAllDataStreams() {
     }
     
     #ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Requesting data streams at 4Hz");
+    __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Requesting individual data streams (QGC-style)");
     #endif
     
-    // Request all streams (MAV_DATA_STREAM_ALL)
-    // Rate = 4Hz for telemetry updates
-    mavlink_message_t msg;
-    mavlink_request_data_stream_t dataStream = {};
+    // Stream configuration based defaults for ArduPilot
+    // Reference: APMFirmwarePlugin.cc initializeStreamRates()
+    struct StreamConfig {
+        uint8_t streamId;
+        uint16_t rate;
+        const char* name;
+    };
     
-    dataStream.target_system = _vehicleState->getSystemId();
-    dataStream.target_component = _vehicleState->getComponentId();
-    dataStream.req_stream_id = MAV_DATA_STREAM_ALL;  // Enable all data streams
-    dataStream.req_message_rate = 4;  // 4Hz
-    dataStream.start_stop = 1;  // Start streaming
+    const StreamConfig streams[] = {
+        // MAV_DATA_STREAM_RAW_SENSORS: IMU, compass, barometer
+        { MAV_DATA_STREAM_RAW_SENSORS, 2, "RAW_SENSORS" },
+        
+        // MAV_DATA_STREAM_EXTENDED_STATUS: SYS_STATUS, BATTERY_STATUS, GPS_STATUS
+        // This is CRITICAL for battery information!
+        { MAV_DATA_STREAM_EXTENDED_STATUS, 2, "EXTENDED_STATUS" },
+        
+        // MAV_DATA_STREAM_RC_CHANNELS: RC input channels
+        { MAV_DATA_STREAM_RC_CHANNELS, 2, "RC_CHANNELS" },
+        
+        // MAV_DATA_STREAM_POSITION: GLOBAL_POSITION_INT, LOCAL_POSITION_NED
+        { MAV_DATA_STREAM_POSITION, 3, "POSITION" },
+        
+        // MAV_DATA_STREAM_EXTRA1: ATTITUDE, roll/pitch/yaw rates
+        { MAV_DATA_STREAM_EXTRA1, 10, "EXTRA1" },
+        
+        // MAV_DATA_STREAM_EXTRA2: VFR_HUD (airspeed, groundspeed, altitude, climb rate)
+        { MAV_DATA_STREAM_EXTRA2, 10, "EXTRA2" },
+        
+        // MAV_DATA_STREAM_EXTRA3: AHRS, HWSTATUS, SYSTEM_TIME, etc
+        { MAV_DATA_STREAM_EXTRA3, 3, "EXTRA3" },
+    };
     
-    mavlink_msg_request_data_stream_encode(
-        _connectionManager->getSystemId(),
-        _connectionManager->getComponentId(),
-        &msg,
-        &dataStream
-    );
-    
-    _connectionManager->sendMessage(msg);
+    for (const auto& stream : streams) {
+        mavlink_message_t msg;
+        mavlink_request_data_stream_t dataStream = {};
+        
+        dataStream.target_system = _vehicleState->getSystemId();
+        dataStream.target_component = _vehicleState->getComponentId();
+        dataStream.req_stream_id = stream.streamId;
+        dataStream.req_message_rate = stream.rate;
+        dataStream.start_stop = 1;  // Start streaming
+        
+        mavlink_msg_request_data_stream_encode(
+            _connectionManager->getSystemId(),
+            _connectionManager->getComponentId(),
+            &msg,
+            &dataStream
+        );
+        
+        _connectionManager->sendMessage(msg);
+        
+        #ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_DEBUG, "MAVLink", "Requested stream %s at %dHz", 
+            stream.name, stream.rate);
+        #endif
+    }
 }
 
 } // namespace margelo::nitro::mavlink

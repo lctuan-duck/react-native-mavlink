@@ -81,6 +81,16 @@ public:
     double getSystemId() override;
     double getComponentId() override;
     
+    // Home Position (NEW - based on QGC)
+    double getHomeLatitude() override;
+    double getHomeLongitude() override;
+    double getHomeAltitude() override;
+    bool hasHomePosition() override;
+    
+    // Landed State (NEW - based on QGC EXTENDED_SYS_STATE)
+    bool isLanding() override;
+    double getLandedState() override;
+    
     // ============================================================================
     // VEHICLE CONTROL - BASIC
     // ============================================================================

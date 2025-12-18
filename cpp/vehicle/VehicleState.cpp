@@ -8,6 +8,10 @@
 #include <chrono>
 #include <cmath>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 namespace margelo::nitro::mavlink {
 
 VehicleState::VehicleState() {
@@ -33,6 +37,17 @@ void VehicleState::handleHeartbeat(const mavlink_heartbeat_t& heartbeat) {
         std::lock_guard<std::mutex> lock(_mutex);
         _flightMode = flightModeFromCustomMode(heartbeat.custom_mode, heartbeat.autopilot);
     }
+    
+    #ifdef __ANDROID__
+    // Debug log to confirm HEARTBEAT is being processed
+    static int heartbeatCount = 0;
+    if (++heartbeatCount % 20 == 0) { // Log every 20th heartbeat (every 20s at 1Hz)
+        __android_log_print(ANDROID_LOG_DEBUG, "MAVLink", 
+            "HEARTBEAT #%d: autopilot=%d type=%d armed=%d mode=%s", 
+            heartbeatCount, heartbeat.autopilot, heartbeat.type, 
+            _armed.load(), _flightMode.c_str());
+    }
+    #endif
     
     _lastHeartbeatMs = getCurrentTimeMs();
 }
@@ -70,43 +85,74 @@ void VehicleState::handleAttitude(const mavlink_attitude_t& attitude) {
     _pitchSpeed = attitude.pitchspeed;
     _yawSpeed = attitude.yawspeed;
     
+    #ifdef __ANDROID__
+    // Debug log to confirm ATTITUDE is being processed
+    static int attitudeCount = 0;
+    if (++attitudeCount % 100 == 0) { // Log every 100th message to avoid spam
+        __android_log_print(ANDROID_LOG_DEBUG, "MAVLink", 
+            "ATTITUDE #%d: roll=%.4f pitch=%.4f yaw=%.4f", 
+            attitudeCount, attitude.roll, attitude.pitch, attitude.yaw);
+    }
+    #endif
+    
     _lastAttitudeMs = getCurrentTimeMs();
 }
 
 void VehicleState::handleBatteryStatus(const mavlink_battery_status_t& battery) {
     int batteryId = battery.id;
     if (batteryId >= 0 && batteryId < 3) {
-        // Voltage in millivolts, convert to volts
-        if (battery.voltages[0] != UINT16_MAX) {
-            double totalVoltage = 0;
-            int cellCount = 0;
-            for (int i = 0; i < 10; i++) {
-                if (battery.voltages[i] != UINT16_MAX) {
-                    totalVoltage += battery.voltages[i];
-                    cellCount++;
-                }
+        // Calculate total voltage from all cell voltages
+        // Based on QGC BatteryFactGroupListModel::_handleBatteryStatus
+        double totalVoltage = 0.0;
+        bool hasValidVoltage = false;
+        
+        // Process main voltages array (cells 1-10)
+        // voltages are in millivolts, UINT16_MAX means invalid/not used
+        for (int i = 0; i < 10; i++) {
+            if (battery.voltages[i] == UINT16_MAX) {
+                break; // No more valid cells
             }
-            if (cellCount > 0) {
-                _batteries[batteryId].voltage = totalVoltage / 1000.0;
+            totalVoltage += battery.voltages[i];
+            hasValidVoltage = true;
+        }
+        
+        // Process extension voltages (cells 11-14)
+        // voltages_ext are in millivolts, 0 means invalid/not used
+        for (int i = 0; i < 4; i++) {
+            if (battery.voltages_ext[i] == 0) {
+                break; // No more valid cells
             }
+            totalVoltage += battery.voltages_ext[i];
+        }
+        
+        // Convert from millivolts to volts
+        if (hasValidVoltage) {
+            _batteries[batteryId].voltage = totalVoltage / 1000.0;
         }
         
         // Current in centiamperes, convert to amperes
+        // -1 means unknown
         if (battery.current_battery != -1) {
             _batteries[batteryId].current = battery.current_battery / 100.0;
         }
         
         // Remaining percentage
+        // -1 means unknown
         if (battery.battery_remaining != -1) {
             _batteries[batteryId].remaining = battery.battery_remaining;
         }
         
-        // Temperature
+        // Temperature in centi-degrees Celsius
+        // INT16_MAX means unknown
         if (battery.temperature != INT16_MAX) {
             _batteries[batteryId].temperature = battery.temperature / 100.0;
         }
     }
+    
+    // Update timestamp for stream re-initialization detection 
+    _lastBatteryStatusMs = getCurrentTimeMs();
 }
+
 
 void VehicleState::handleGPSRawInt(const mavlink_gps_raw_int_t& gps) {
     _gpsFixType = gps.fix_type;
@@ -140,6 +186,49 @@ void VehicleState::handleSysStatus(const mavlink_sys_status_t& sysStatus) {
     // current_battery in centiamperes, convert to amperes
     if (sysStatus.current_battery != -1) {
         _batteries[0].current = sysStatus.current_battery / 100.0;
+    }
+    
+    #ifdef __ANDROID__
+    // Debug log to confirm SYS_STATUS is being processed
+    static int sysStatusCount = 0;
+    if (++sysStatusCount % 50 == 0) { // Log every 50th message
+        __android_log_print(ANDROID_LOG_DEBUG, "MAVLink", 
+            "SYS_STATUS #%d: voltage=%d mV (%.2fV), remaining=%d%%", 
+            sysStatusCount, sysStatus.voltage_battery, 
+            _batteries[0].voltage.load(), sysStatus.battery_remaining);
+    }
+    #endif
+}
+
+void VehicleState::handleHomePosition(const mavlink_home_position_t& home) {
+    // HOME_POSITION message handling (based on QGC Vehicle.cc)
+    _homeLatitude = home.latitude / 1e7;
+    _homeLongitude = home.longitude / 1e7;
+    _homeAltitude = home.altitude / 1000.0;  // mm to meters
+    _hasHomePosition = true;
+}
+
+void VehicleState::handleExtendedSysState(const mavlink_extended_sys_state_t& extState) {
+    // EXTENDED_SYS_STATE handling (based on QGC Vehicle.cc lines 891-921)
+    _landedState = extState.landed_state;
+    
+    switch (extState.landed_state) {
+        case MAV_LANDED_STATE_ON_GROUND:
+            _flying = false;
+            _landing = false;
+            break;
+        case MAV_LANDED_STATE_TAKEOFF:
+        case MAV_LANDED_STATE_IN_AIR:
+            _flying = true;
+            _landing = false;
+            break;
+        case MAV_LANDED_STATE_LANDING:
+            _flying = true;
+            _landing = true;
+            break;
+        default:
+            // MAV_LANDED_STATE_UNDEFINED - keep current values
+            break;
     }
 }
 
@@ -193,7 +282,14 @@ double VehicleState::getGPSHDOP() const { return _gpsHDOP.load(); }
 bool VehicleState::isArmed() const { return _armed.load(); }
 
 bool VehicleState::isFlying() const {
-    // Simple heuristic: armed and altitude > 0.5m or climbing
+    // If we have valid EXTENDED_SYS_STATE data, use it (QGC approach)
+    uint8_t landedState = _landedState.load();
+    if (landedState != MAV_LANDED_STATE_UNDEFINED) {
+        return _flying.load();
+    }
+    
+    // Fallback to heuristic for autopilots that don't send EXTENDED_SYS_STATE
+    // Based on QGC Vehicle.cc behavior
     return _armed.load() && (_altitudeRelative.load() > 0.5 || _climbRate.load() > 0.1);
 }
 
@@ -232,6 +328,24 @@ uint64_t VehicleState::getTimeSinceLastHeartbeat() const {
     }
     return getCurrentTimeMs() - lastHeartbeat;
 }
+
+uint64_t VehicleState::getTimeSinceLastBatteryStatus() const {
+    uint64_t lastBattery = _lastBatteryStatusMs.load();
+    if (lastBattery == 0) {
+        return 0;
+    }
+    return getCurrentTimeMs() - lastBattery;
+}
+
+// Home Position getters
+double VehicleState::getHomeLatitude() const { return _homeLatitude.load(); }
+double VehicleState::getHomeLongitude() const { return _homeLongitude.load(); }
+double VehicleState::getHomeAltitude() const { return _homeAltitude.load(); }
+bool VehicleState::hasHomePosition() const { return _hasHomePosition.load(); }
+
+// Landed state getters
+bool VehicleState::isLanding() const { return _landing.load(); }
+uint8_t VehicleState::getLandedState() const { return _landedState.load(); }
 
 // ============================================================================
 // Setters
