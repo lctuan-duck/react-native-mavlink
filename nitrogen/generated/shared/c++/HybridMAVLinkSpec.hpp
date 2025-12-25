@@ -75,6 +75,8 @@ namespace margelo::nitro::mavlink {
       virtual std::shared_ptr<Promise<bool>> connectWithConfig(const ConnectionConfig& config) = 0;
       virtual std::shared_ptr<Promise<void>> disconnect() = 0;
       virtual bool isConnected() = 0;
+      virtual bool isHeartbeatTimeout() = 0;
+      virtual double getTimeSinceLastHeartbeat() = 0;
       virtual double getLatitude() = 0;
       virtual double getLongitude() = 0;
       virtual double getAltitude() = 0;
@@ -94,6 +96,12 @@ namespace margelo::nitro::mavlink {
       virtual std::string getFlightMode() = 0;
       virtual double getSystemId() = 0;
       virtual double getComponentId() = 0;
+      virtual double getHomeLatitude() = 0;
+      virtual double getHomeLongitude() = 0;
+      virtual double getHomeAltitude() = 0;
+      virtual bool hasHomePosition() = 0;
+      virtual bool isLanding() = 0;
+      virtual double getLandedState() = 0;
       virtual std::shared_ptr<Promise<bool>> setArmed(bool arm, bool force) = 0;
       virtual std::shared_ptr<Promise<bool>> setFlightMode(const std::string& mode) = 0;
       virtual std::shared_ptr<Promise<bool>> guidedTakeoff(double altitude) = 0;

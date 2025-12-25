@@ -21,6 +21,9 @@ export interface ConnectionConfig {
   address: string;
   port: number;
   baudRate: number;
+  autoReconnect?: boolean; // Enable auto-reconnect on connection loss (default: false)
+  maxReconnectAttempts?: number; // Max reconnect attempts, 0 = infinite (default: 0)
+  reconnectDelayMs?: number; // Initial reconnect delay in ms (default: 5000)
 }
 
 /**
@@ -110,6 +113,16 @@ export interface MAVLink extends HybridObject<{ ios: 'c++', android: 'c++' }> {
    * Check if connected to vehicle
    */
   isConnected(): boolean;
+
+  /**
+   * Check if heartbeat timeout (>3.5s without HEARTBEAT)
+   */
+  isHeartbeatTimeout(): boolean;
+
+  /**
+   * Get time since last heartbeat in milliseconds
+   */
+  getTimeSinceLastHeartbeat(): number;
 
   // ============================================================================
   // VEHICLE STATE & TELEMETRY
@@ -211,6 +224,45 @@ export interface MAVLink extends HybridObject<{ ios: 'c++', android: 'c++' }> {
    * Get component ID
    */
   getComponentId(): number;
+
+  // ============================================================================
+  // HOME POSITION 
+  // ============================================================================
+
+  /**
+   * Get home latitude
+   */
+  getHomeLatitude(): number;
+
+  /**
+   * Get home longitude
+   */
+  getHomeLongitude(): number;
+
+  /**
+   * Get home altitude
+   */
+  getHomeAltitude(): number;
+
+  /**
+   * Check if home position has been set
+   */
+  hasHomePosition(): boolean;
+
+  // ============================================================================
+  // LANDED STATE 
+  // ============================================================================
+
+  /**
+   * Check if vehicle is currently landing
+   */
+  isLanding(): boolean;
+
+  /**
+   * Get landed state (MAV_LANDED_STATE enum)
+   * 0=UNDEFINED, 1=ON_GROUND, 2=IN_AIR, 3=TAKEOFF, 4=LANDING
+   */
+  getLandedState(): number;
 
   // ============================================================================
   // VEHICLE CONTROL - BASIC

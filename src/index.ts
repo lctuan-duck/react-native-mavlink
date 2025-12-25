@@ -16,30 +16,57 @@ export const mavlink = NitroModules.createHybridObject<MAVLink>('MAVLink')
 export default mavlink
 
 // Helper functions for common operations
-export const connectUDP = async (address: string, port: number) => {
+export const connectUDP = async (
+  address: string,
+  port?: number,
+  autoReconnect: boolean = true,
+  maxReconnectAttempts: number = 3,
+  reconnectDelayMs: number = 5000
+) => {
   return mavlink.connectWithConfig({
     type: 1, // UDP
     address,
-    port,
-    baudRate: 0
+    port: port ?? 14550,
+    baudRate: 0,
+    autoReconnect,
+    maxReconnectAttempts,
+    reconnectDelayMs,
   })
 }
 
-export const connectSerial = async (port: string, baudRate: number = 57600) => {
+export const connectSerial = async (
+  port: string,
+  baudRate: number = 57600,
+  autoReconnect: boolean = true,
+  maxReconnectAttempts: number = 3,
+  reconnectDelayMs: number = 5000
+) => {
   return mavlink.connectWithConfig({
     type: 0, // SERIAL
     address: port,
     port: 0,
-    baudRate
+    baudRate,
+    autoReconnect,
+    maxReconnectAttempts,
+    reconnectDelayMs,
   })
 }
 
-export const connectTCP = async (address: string, port: number) => {
+export const connectTCP = async (
+  address: string,
+  port?: number,
+  autoReconnect: boolean = true,
+  maxReconnectAttempts: number = 3,
+  reconnectDelayMs: number = 5000
+) => {
   return mavlink.connectWithConfig({
     type: 2, // TCP
     address,
-    port,
-    baudRate: 0
+    port: port ?? 5760,
+    baudRate: 0,
+    autoReconnect,
+    maxReconnectAttempts,
+    reconnectDelayMs,
   })
 }
 
@@ -74,7 +101,36 @@ export const getTelemetry = () => {
       armed: mavlink.isArmed(),
       flying: mavlink.isFlying(),
       flightMode: mavlink.getFlightMode(),
-      connected: mavlink.isConnected()
+      connected: mavlink.isConnected(),
+      heartbeatTimeout: mavlink.isHeartbeatTimeout(),
+      timeSinceLastHeartbeat: mavlink.getTimeSinceLastHeartbeat()
     }
   }
+}
+
+/**
+ * Monitor connection health and detect heartbeat timeout
+ * detects if no HEARTBEAT received for > 3.5s
+ */
+export function monitorConnectionHealth(
+  callback: (status: {
+    connected: boolean
+    heartbeatTimeout: boolean
+    timeSinceLastHeartbeat: number
+  }) => void,
+  checkIntervalMs: number = 1000
+): () => void {
+  const interval = setInterval(() => {
+    const connected = mavlink.isConnected()
+    const heartbeatTimeout = mavlink.isHeartbeatTimeout()
+    const timeSinceLastHeartbeat = mavlink.getTimeSinceLastHeartbeat()
+
+    callback({
+      connected,
+      heartbeatTimeout,
+      timeSinceLastHeartbeat,
+    })
+  }, checkIntervalMs)
+
+  return () => clearInterval(interval)
 }

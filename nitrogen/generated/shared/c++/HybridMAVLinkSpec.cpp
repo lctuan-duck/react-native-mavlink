@@ -17,6 +17,8 @@ namespace margelo::nitro::mavlink {
       prototype.registerHybridMethod("connectWithConfig", &HybridMAVLinkSpec::connectWithConfig);
       prototype.registerHybridMethod("disconnect", &HybridMAVLinkSpec::disconnect);
       prototype.registerHybridMethod("isConnected", &HybridMAVLinkSpec::isConnected);
+      prototype.registerHybridMethod("isHeartbeatTimeout", &HybridMAVLinkSpec::isHeartbeatTimeout);
+      prototype.registerHybridMethod("getTimeSinceLastHeartbeat", &HybridMAVLinkSpec::getTimeSinceLastHeartbeat);
       prototype.registerHybridMethod("getLatitude", &HybridMAVLinkSpec::getLatitude);
       prototype.registerHybridMethod("getLongitude", &HybridMAVLinkSpec::getLongitude);
       prototype.registerHybridMethod("getAltitude", &HybridMAVLinkSpec::getAltitude);
@@ -36,6 +38,12 @@ namespace margelo::nitro::mavlink {
       prototype.registerHybridMethod("getFlightMode", &HybridMAVLinkSpec::getFlightMode);
       prototype.registerHybridMethod("getSystemId", &HybridMAVLinkSpec::getSystemId);
       prototype.registerHybridMethod("getComponentId", &HybridMAVLinkSpec::getComponentId);
+      prototype.registerHybridMethod("getHomeLatitude", &HybridMAVLinkSpec::getHomeLatitude);
+      prototype.registerHybridMethod("getHomeLongitude", &HybridMAVLinkSpec::getHomeLongitude);
+      prototype.registerHybridMethod("getHomeAltitude", &HybridMAVLinkSpec::getHomeAltitude);
+      prototype.registerHybridMethod("hasHomePosition", &HybridMAVLinkSpec::hasHomePosition);
+      prototype.registerHybridMethod("isLanding", &HybridMAVLinkSpec::isLanding);
+      prototype.registerHybridMethod("getLandedState", &HybridMAVLinkSpec::getLandedState);
       prototype.registerHybridMethod("setArmed", &HybridMAVLinkSpec::setArmed);
       prototype.registerHybridMethod("setFlightMode", &HybridMAVLinkSpec::setFlightMode);
       prototype.registerHybridMethod("guidedTakeoff", &HybridMAVLinkSpec::guidedTakeoff);

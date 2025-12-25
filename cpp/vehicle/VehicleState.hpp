@@ -29,6 +29,8 @@ public:
     void handleGPSRawInt(const mavlink_gps_raw_int_t& gps);
     void handleVFRHUD(const mavlink_vfr_hud_t& vfr);
     void handleSysStatus(const mavlink_sys_status_t& sysStatus);
+    void handleHomePosition(const mavlink_home_position_t& home);
+    void handleExtendedSysState(const mavlink_extended_sys_state_t& extState);
     
     // ============================================================================
     // Getters - Thread-safe
@@ -41,6 +43,12 @@ public:
     double getAltitudeRelative() const;
     double getAltitudeAMSL() const;
     double getHeading() const;
+    
+    // Home Position (based on QGC)
+    double getHomeLatitude() const;
+    double getHomeLongitude() const;
+    double getHomeAltitude() const;
+    bool hasHomePosition() const;
     
     // Speed & Movement
     double getGroundSpeed() const;
@@ -68,6 +76,8 @@ public:
     // System State
     bool isArmed() const;
     bool isFlying() const;
+    bool isLanding() const;
+    uint8_t getLandedState() const;
     std::string getFlightMode() const;
     int getSystemId() const;
     int getComponentId() const;
@@ -81,11 +91,16 @@ public:
     uint32_t getSensorsPresentBits() const;
     uint32_t getSensorsEnabledBits() const;
     uint32_t getSensorsHealthBits() const;
-    
+
+    // Connection Health (based on QGC VehicleLinkManager)
+    bool isHeartbeatTimeout() const;  // Check if heartbeat timeout (>3.5s)
+    uint64_t getTimeSinceLastHeartbeat() const;  // Time since last heartbeat (ms)
+    uint64_t getTimeSinceLastBatteryStatus() const;  // For stream re-initialization
+
     // ============================================================================
     // Setters
     // ============================================================================
-    
+
     void setSystemId(int systemId);
     void setComponentId(int componentId);
     void setFlightMode(const std::string& mode);
@@ -105,6 +120,12 @@ private:
     std::atomic<double> _altitudeRelative{0.0};
     std::atomic<double> _altitudeAMSL{0.0};
     std::atomic<double> _heading{0.0};
+    
+    // Home Position
+    std::atomic<double> _homeLatitude{0.0};
+    std::atomic<double> _homeLongitude{0.0};
+    std::atomic<double> _homeAltitude{0.0};
+    std::atomic<bool> _hasHomePosition{false};
     
     // Velocity (m/s)
     std::atomic<double> _groundSpeed{0.0};
@@ -140,6 +161,9 @@ private:
     std::atomic<uint8_t> _autopilotType{0};
     std::atomic<uint8_t> _vehicleType{0};
     std::atomic<bool> _armed{false};
+    std::atomic<bool> _flying{false};
+    std::atomic<bool> _landing{false};
+    std::atomic<uint8_t> _landedState{0};  // MAV_LANDED_STATE
     
     // System health
     std::atomic<uint32_t> _sensorsPresentBits{0};
@@ -149,15 +173,19 @@ private:
     // Flight mode (protected by mutex)
     std::string _flightMode{"UNKNOWN"};
     
-    // Timestamps (for detecting stale data)
+    // Timestamps (for detecting stale data and stream re-initialization)
     std::atomic<uint64_t> _lastHeartbeatMs{0};
     std::atomic<uint64_t> _lastPositionMs{0};
+    std::atomic<uint64_t> _lastBatteryStatusMs{0};  // For stream re-init (QGC APMFirmwarePlugin)
     std::atomic<uint64_t> _lastAttitudeMs{0};
     
     // Helper methods
     uint64_t getCurrentTimeMs() const;
     bool isArmedFromBaseMode(uint8_t baseMode) const;
     std::string flightModeFromCustomMode(uint32_t customMode, uint8_t autopilot) const;
+
+    // Constants (based on QGC VehicleLinkManager)
+    static constexpr uint64_t HEARTBEAT_TIMEOUT_MS = 3500;  // 3.5 seconds
 };
 
 } // namespace margelo::nitro::mavlink

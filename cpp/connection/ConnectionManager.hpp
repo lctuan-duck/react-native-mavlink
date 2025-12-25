@@ -45,7 +45,13 @@ public:
     bool connect(ConnectionType type, const std::string& address, int port, int baudRate);
     void disconnect();
     bool isConnected() const;
-    
+
+    // Auto-reconnect (based on QGC LinkManager)
+    void setAutoReconnect(bool enabled, int maxAttempts = 0, int delayMs = 5000);
+    bool isAutoReconnectEnabled() const;
+    int getReconnectAttempts() const;
+    void startReconnect();  // Public method to trigger reconnect
+
     // ============================================================================
     // Message Handling
     // ============================================================================
@@ -93,11 +99,19 @@ private:
     // Threads
     std::thread _receiveThread;
     std::thread _sendThread;
-    
+    std::thread _reconnectThread;
+
     // Callbacks
     MessageCallback _messageCallback;
     ConnectionCallback _connectionCallback;
     std::mutex _callbackMutex;
+
+    // Auto-reconnect state (based on QGC)
+    std::atomic<bool> _autoReconnectEnabled{false};
+    std::atomic<int> _maxReconnectAttempts{0};  // 0 = infinite
+    std::atomic<int> _reconnectAttempts{0};
+    std::atomic<int> _reconnectDelayMs{5000};   // Initial delay
+    std::atomic<bool> _isReconnecting{false};
     
     // Message queue
     std::queue<std::vector<uint8_t>> _sendQueue;
@@ -120,8 +134,9 @@ private:
     bool connectUDP();
     bool connectTCP();
     bool connectSerial();
-    
+
     void disconnectSocket();
+    void disconnectInternal();  // Internal disconnect without stopping reconnect thread
     
     // Thread methods
     void receiveThreadFunction();
@@ -133,7 +148,11 @@ private:
     // Helpers
     void notifyConnection(bool connected);
     bool sendData(const uint8_t* data, size_t length);
-    
+
+    // Auto-reconnect thread
+    void reconnectThreadFunction();
+    void stopReconnect();
+
     // MAVLink state
     mavlink_status_t _mavlinkStatus{};
     mavlink_message_t _mavlinkMessage{};

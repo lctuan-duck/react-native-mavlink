@@ -9,6 +9,8 @@ A comprehensive MAVLink library for React Native with full TypeScript support, e
 - UDP, TCP, and Serial connections
 - Thread-safe message handling with C++17
 - Automatic retry and acknowledgment (ACK)
+- **Auto-reconnect with exponential backoff** (5s → 60s)
+- **Heartbeat timeout detection** (3.5s)
 - Based on QGroundControl architecture
 
 ✅ **Vehicle Control**
@@ -93,6 +95,7 @@ const connected = await connectTCP('192.168.1.100', 5760)
 ```
 
 **Connection Behavior**:
+
 - `connectWithConfig()` returns `true` only after receiving vehicle HEARTBEAT
 - Waits up to **5 seconds** for HEARTBEAT exchange
 - Returns `false` if no HEARTBEAT received (timeout or vehicle not responding)
@@ -104,7 +107,105 @@ const connected = await connectTCP('192.168.1.100', 5760)
 - **iOS Simulator**: Use `127.0.0.1` (shares network with host)
 - **Real Device**: Use actual IP address of computer running MAVProxy/SITL
 
-### 2. Connect to Real Drone
+### 2. Auto-Reconnect on Connection Loss
+
+Enable **automatic reconnection** with exponential backoff when connection is lost:
+
+```typescript
+import { connectUDP } from 'react-native-mavlink'
+
+// Enable auto-reconnect with default settings (3 attempts, 5s initial delay)
+await connectUDP(
+  '10.0.2.2',
+  14550,
+  true, // Enable auto-reconnect (default: true)
+  3, // Max 3 reconnect attempts (default: 3, use 0 for infinite)
+  5000 // Initial delay 5s (default: 5000ms, will exponentially increase: 5s→10s→20s→40s→60s)
+)
+
+// Or with custom settings
+await connectUDP(
+  '10.0.2.2',
+  14550,
+  true, // Enable auto-reconnect
+  10, // Max 10 reconnect attempts
+  3000 // Start with 3s delay
+)
+```
+
+**Exponential Backoff Strategy** (same as QGroundControl):
+
+- 1st attempt: 5s delay
+- 2nd attempt: 10s delay
+- 3rd attempt: 20s delay
+- 4th attempt: 40s delay
+- 5th+ attempts: 60s delay (capped)
+
+### 3. Monitor Connection Health
+
+React Native MAVLink includes **Heartbeat Timeout Detection** based on QGroundControl's VehicleLinkManager. This automatically detects connection loss when no HEARTBEAT received for >3.5 seconds.
+
+```typescript
+import { monitorConnectionHealth } from 'react-native-mavlink'
+
+// Start monitoring (checks every 1 second)
+const stopMonitoring = monitorConnectionHealth((status) => {
+  if (status.heartbeatTimeout) {
+    // Connection lost! Vehicle stopped sending heartbeats
+    console.warn('⚠️ Connection Lost!')
+    console.log(
+      'Time since last heartbeat:',
+      status.timeSinceLastHeartbeat,
+      'ms'
+    )
+    // Show warning to user, attempt reconnect, etc.
+  } else if (status.connected) {
+    console.log('✅ Connection Healthy')
+  }
+})
+
+// Later: stop monitoring
+stopMonitoring()
+```
+
+**Manual Check**:
+
+```typescript
+import { mavlink } from 'react-native-mavlink'
+
+// Check heartbeat timeout manually
+if (mavlink.isHeartbeatTimeout()) {
+  console.warn('No heartbeat for >3.5 seconds!')
+}
+
+// Get exact time since last heartbeat
+const ms = mavlink.getTimeSinceLastHeartbeat()
+console.log('Last heartbeat:', ms, 'ms ago')
+```
+
+**Combine Auto-Reconnect + Heartbeat Monitoring** (Recommended):
+
+```typescript
+import { connectUDP, monitorConnectionHealth } from 'react-native-mavlink'
+
+// 1. Connect with auto-reconnect enabled
+await connectUDP('10.0.2.2', 14550, true, 0, 5000)
+
+// 2. Monitor connection health
+const stopMonitoring = monitorConnectionHealth((status) => {
+  if (status.heartbeatTimeout) {
+    console.warn(
+      '⚠️ Connection Lost - Auto-reconnect will attempt to restore...'
+    )
+    // Show warning banner to user
+  } else if (status.connected) {
+    console.log('✅ Connection Restored!')
+    // Hide warning banner
+  }
+})
+```
+
+### 4. Connect to Real Drone
 
 If you have a real drone connected to your computer via USB/Serial:
 
@@ -337,10 +438,19 @@ All getters are **synchronous** and return current cached values updated in real
 **Status:**
 
 - `isArmed(): boolean` - Armed status
-- `isFlying(): boolean` - Flying status (based on throttle and altitude)
+- `isFlying(): boolean` - Flying status (uses EXTENDED_SYS_STATE when available)
+- `isLanding(): boolean` - Check if vehicle is currently landing **(NEW)**
+- `getLandedState(): number` - MAV_LANDED_STATE (0=UNDEFINED, 1=ON_GROUND, 2=IN_AIR, 3=TAKEOFF, 4=LANDING) **(NEW)**
 - `getFlightMode(): string` - Current flight mode (e.g., "GUIDED", "AUTO", "RTL")
 - `getSystemId(): number` - MAVLink system ID (default: 1)
 - `getComponentId(): number` - MAVLink component ID (default: 1)
+
+**Home Position (NEW):**
+
+- `getHomeLatitude(): number` - Home latitude (degrees)
+- `getHomeLongitude(): number` - Home longitude (degrees)
+- `getHomeAltitude(): number` - Home altitude (meters)
+- `hasHomePosition(): boolean` - Check if home position is set
 
 **Helper function for all telemetry:**
 
@@ -645,7 +755,7 @@ Built with high-performance C++17 and React Native Nitro Modules:
 │  ┌──────────────────────────────────────────┐  │
 │  │    CommandExecutor (Retry + ACK)         │  │
 │  │  • 3s timeout, 3 retries                 │  │
-│  │  • Confirmation++ on retry (QGC logic)   │  │
+│  │  • Confirmation++ on retry  │  │
 │  │  • ACK matching by command ID            │  │
 │  │  • Promise-based async API               │  │
 │  └──────────────────────────────────────────┘  │
@@ -672,7 +782,6 @@ Built with high-performance C++17 and React Native Nitro Modules:
 
 - **Thread-safe**: std::atomic for simple values, std::mutex for complex data
 - **Zero-copy**: Nitro bridge minimizes JS ↔ C++ overhead
-- **QGC-validated**: Logic compared against QGroundControl Vehicle.cc
 - **Cross-platform**: Windows (DCB), Linux (termios), Android NDK, iOS
 
 ## 🐛 Troubleshooting
@@ -755,7 +864,7 @@ await mavlink.requestDataStreamParams({
 })
 
 // Option 2: Set message rates (PX4, modern ArduPilot)
-// Use Mission Planner or QGC to configure stream rates
+// Use Mission Planner to configure stream rates
 ```
 
 **Problem**: Telemetry updates only once
@@ -888,7 +997,6 @@ Special thanks to:
 
 - ✅ Fixed isConnected() logic (system ID from HEARTBEAT)
 - ✅ ArduPilot lat/lon=0 quirk handling
-- ✅ QGC-validated message routing
 - ✅ Parameter management with type conversion
 - ✅ Command retry with confirmation increment
 - ✅ Compiler warnings cleanup
@@ -921,3 +1029,15 @@ If this library helps you build amazing drone applications, please:
 ---
 
 **Made with ❤️ for the drone development community**
+
+## Contact & Support
+
+- **Author**: Le Cong Tuan
+- **Personal Email**: lctuan.dev@gmail.com
+- **Business Email**: tuan.le.e@ctuan.vn
+
+---
+
+**Version**: 0.0.2  
+**Last Updated**: 2025  
+**Status**: Beta - Core features implemented, additional features in progress

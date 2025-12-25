@@ -38,15 +38,25 @@ constexpr float ARM_DISARM_FORCE_PARAM = 21196.0f; // Force arm/disarm parameter
 
 std::shared_ptr<Promise<bool>> HybridMAVLink::connectWithConfig(const ConnectionConfig& config) {
     auto promise = Promise<bool>::create();
-    
+
+    // Setup auto-reconnect if requested
+    if (config.autoReconnect.has_value() && config.autoReconnect.value()) {
+        int maxAttempts = config.maxReconnectAttempts.has_value() ?
+            static_cast<int>(config.maxReconnectAttempts.value()) : 0;
+        int delayMs = config.reconnectDelayMs.has_value() ?
+            static_cast<int>(config.reconnectDelayMs.value()) : 5000;
+
+        _connectionManager->setAutoReconnect(true, maxAttempts, delayMs);
+    }
+
     // Create thread to connect async
     std::thread([this, config, promise]() {
         bool success = false;
-        
+
         try {
             // Cast double to ConnectionType enum
             ConnectionType connType = static_cast<ConnectionType>(static_cast<int>(config.type));
-            
+
             // Use public connect() method with all parameters
             success = _connectionManager->connect(
                 connType,
@@ -124,6 +134,14 @@ bool HybridMAVLink::isConnected() {
     // After connectWithConfig() resolves true, this should always return true
     // because we already waited for HEARTBEAT in connectWithConfig()
     return _isConnected && _vehicleState->getSystemId() > 0;
+}
+
+bool HybridMAVLink::isHeartbeatTimeout() {
+    return _vehicleState->isHeartbeatTimeout();
+}
+
+double HybridMAVLink::getTimeSinceLastHeartbeat() {
+    return static_cast<double>(_vehicleState->getTimeSinceLastHeartbeat());
 }
 
 // ============================================================================
@@ -204,6 +222,32 @@ double HybridMAVLink::getSystemId() {
 
 double HybridMAVLink::getComponentId() {
     return _vehicleState->getComponentId();
+}
+
+// Home Position 
+double HybridMAVLink::getHomeLatitude() {
+    return _vehicleState->getHomeLatitude();
+}
+
+double HybridMAVLink::getHomeLongitude() {
+    return _vehicleState->getHomeLongitude();
+}
+
+double HybridMAVLink::getHomeAltitude() {
+    return _vehicleState->getHomeAltitude();
+}
+
+bool HybridMAVLink::hasHomePosition() {
+    return _vehicleState->hasHomePosition();
+}
+
+// Landed State (NEW - based on QGC EXTENDED_SYS_STATE)
+bool HybridMAVLink::isLanding() {
+    return _vehicleState->isLanding();
+}
+
+double HybridMAVLink::getLandedState() {
+    return _vehicleState->getLandedState();
 }
 
 // ============================================================================
@@ -860,19 +904,79 @@ void HybridMAVLink::handleMavlinkMessage(const mavlink_message_t& message) {
             _currentMissionItem = current.seq;
             break;
         }
+        case MAVLINK_MSG_ID_HOME_POSITION: {
+            mavlink_home_position_t home;
+            mavlink_msg_home_position_decode(&message, &home);
+            _vehicleState->handleHomePosition(home);
+            break;
+        }
+        case MAVLINK_MSG_ID_EXTENDED_SYS_STATE: {
+            mavlink_extended_sys_state_t extState;
+            mavlink_msg_extended_sys_state_decode(&message, &extState);
+            _vehicleState->handleExtendedSysState(extState);
+            break;
+        }
     }
 }
 
 void HybridMAVLink::timeoutCheckLoop() {
+    bool previouslyTimedOut = false;
+
     while (_shouldRun) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        
+
         if (_commandExecutor) {
             _commandExecutor->checkTimeouts();
         }
-        
+
         if (_parameterManager) {
             _parameterManager->checkTimeouts();
+        }
+
+        // Check heartbeat timeout (based on QGC VehicleLinkManager)
+        // Only check if we were previously connected
+        if (_isConnected && _vehicleState->getSystemId() > 0) {
+            bool isTimedOut = _vehicleState->isHeartbeatTimeout();
+
+            // Trigger reconnect on first timeout detection
+            if (isTimedOut && !previouslyTimedOut) {
+                std::cerr << "Heartbeat timeout detected (>3.5s) - Connection lost!" << std::endl;
+
+                // Mark as disconnected (always, regardless of auto-reconnect setting)
+                _isConnected = false;
+
+                // Trigger auto-reconnect if enabled
+                if (_connectionManager->isAutoReconnectEnabled()) {
+                    std::cout << "Starting auto-reconnect due to heartbeat timeout..." << std::endl;
+                    _connectionManager->startReconnect();
+                } else {
+                    std::cout << "Auto-reconnect disabled - connection marked as lost" << std::endl;
+                }
+
+                previouslyTimedOut = true;
+            } else if (!isTimedOut && previouslyTimedOut) {
+                // Heartbeat restored - just log it
+                // Connection callback will handle setting _isConnected = true
+                std::cout << "Heartbeat restored - Connection healthy" << std::endl;
+                previouslyTimedOut = false;
+            }
+            
+            // Stream re-initialization (based on QGC APMFirmwarePlugin lines 325-329)
+            // Re-request data streams if BATTERY_STATUS not received for 10 seconds
+            uint64_t timeSinceLastBattery = _vehicleState->getTimeSinceLastBatteryStatus();
+            if (timeSinceLastBattery > 10000 && timeSinceLastBattery < 15000) {
+                // Only re-init once per timeout (between 10-15 seconds)
+                #ifdef __ANDROID__
+                __android_log_print(ANDROID_LOG_WARN, "MAVLink", 
+                    "BATTERY_STATUS timeout (%llu ms) - Re-initializing streams", 
+                    (unsigned long long)timeSinceLastBattery);
+                #endif
+                std::cout << "BATTERY_STATUS timeout - Re-initializing data streams" << std::endl;
+                requestAllDataStreams();
+            }
+        } else {
+            // Reset timeout flag if not connected
+            previouslyTimedOut = false;
         }
     }
 }
@@ -919,7 +1023,7 @@ void HybridMAVLink::sendGCSHeartbeat() {
 }
 
 void HybridMAVLink::requestAllDataStreams() {
-    // Request data streams at 4Hz (based on QGC default rates)
+    // Request individual data streams based on QGC APMFirmwarePlugin::initializeStreamRates
     // This is called automatically after first HEARTBEAT received
     
     if (_vehicleState->getSystemId() == 0) {
@@ -927,28 +1031,65 @@ void HybridMAVLink::requestAllDataStreams() {
     }
     
     #ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Requesting data streams at 4Hz");
+    __android_log_print(ANDROID_LOG_INFO, "MAVLink", "Requesting individual data streams (QGC-style)");
     #endif
     
-    // Request all streams (MAV_DATA_STREAM_ALL)
-    // Rate = 4Hz for telemetry updates
-    mavlink_message_t msg;
-    mavlink_request_data_stream_t dataStream = {};
+    // Stream configuration based defaults for ArduPilot
+    // Reference: APMFirmwarePlugin.cc initializeStreamRates()
+    struct StreamConfig {
+        uint8_t streamId;
+        uint16_t rate;
+        const char* name;
+    };
     
-    dataStream.target_system = _vehicleState->getSystemId();
-    dataStream.target_component = _vehicleState->getComponentId();
-    dataStream.req_stream_id = MAV_DATA_STREAM_ALL;  // Enable all data streams
-    dataStream.req_message_rate = 4;  // 4Hz
-    dataStream.start_stop = 1;  // Start streaming
+    const StreamConfig streams[] = {
+        // MAV_DATA_STREAM_RAW_SENSORS: IMU, compass, barometer
+        { MAV_DATA_STREAM_RAW_SENSORS, 2, "RAW_SENSORS" },
+        
+        // MAV_DATA_STREAM_EXTENDED_STATUS: SYS_STATUS, BATTERY_STATUS, GPS_STATUS
+        // This is CRITICAL for battery information!
+        { MAV_DATA_STREAM_EXTENDED_STATUS, 2, "EXTENDED_STATUS" },
+        
+        // MAV_DATA_STREAM_RC_CHANNELS: RC input channels
+        { MAV_DATA_STREAM_RC_CHANNELS, 2, "RC_CHANNELS" },
+        
+        // MAV_DATA_STREAM_POSITION: GLOBAL_POSITION_INT, LOCAL_POSITION_NED
+        { MAV_DATA_STREAM_POSITION, 3, "POSITION" },
+        
+        // MAV_DATA_STREAM_EXTRA1: ATTITUDE, roll/pitch/yaw rates
+        { MAV_DATA_STREAM_EXTRA1, 10, "EXTRA1" },
+        
+        // MAV_DATA_STREAM_EXTRA2: VFR_HUD (airspeed, groundspeed, altitude, climb rate)
+        { MAV_DATA_STREAM_EXTRA2, 10, "EXTRA2" },
+        
+        // MAV_DATA_STREAM_EXTRA3: AHRS, HWSTATUS, SYSTEM_TIME, etc
+        { MAV_DATA_STREAM_EXTRA3, 3, "EXTRA3" },
+    };
     
-    mavlink_msg_request_data_stream_encode(
-        _connectionManager->getSystemId(),
-        _connectionManager->getComponentId(),
-        &msg,
-        &dataStream
-    );
-    
-    _connectionManager->sendMessage(msg);
+    for (const auto& stream : streams) {
+        mavlink_message_t msg;
+        mavlink_request_data_stream_t dataStream = {};
+        
+        dataStream.target_system = _vehicleState->getSystemId();
+        dataStream.target_component = _vehicleState->getComponentId();
+        dataStream.req_stream_id = stream.streamId;
+        dataStream.req_message_rate = stream.rate;
+        dataStream.start_stop = 1;  // Start streaming
+        
+        mavlink_msg_request_data_stream_encode(
+            _connectionManager->getSystemId(),
+            _connectionManager->getComponentId(),
+            &msg,
+            &dataStream
+        );
+        
+        _connectionManager->sendMessage(msg);
+        
+        #ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_DEBUG, "MAVLink", "Requested stream %s at %dHz", 
+            stream.name, stream.rate);
+        #endif
+    }
 }
 
 } // namespace margelo::nitro::mavlink

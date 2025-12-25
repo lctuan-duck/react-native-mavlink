@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstring>
 #include <chrono>
+#include <cerrno>  // For errno, ENXIO, ENODEV, EIO, etc.
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -42,6 +43,7 @@ ConnectionManager::ConnectionManager() {
 }
 
 ConnectionManager::~ConnectionManager() {
+    stopReconnect();
     disconnect();
 #ifdef _WIN32
     WSACleanup();
@@ -91,10 +93,20 @@ bool ConnectionManager::connect(ConnectionType type, const std::string& address,
 }
 
 void ConnectionManager::disconnect() {
+    // Stop reconnect thread first (if running)
+    // This ensures manual disconnect() stops any ongoing reconnection attempts
+    stopReconnect();
+
+    disconnectInternal();
+}
+
+void ConnectionManager::disconnectInternal() {
+    // Internal disconnect - does NOT stop reconnect thread
+    // Used by reconnectThreadFunction to avoid deadlock
     if (_connected) {
         _shouldRun = false;
         _connected = false;
-        
+
         // Wait for threads
         if (_receiveThread.joinable()) {
             _receiveThread.join();
@@ -102,7 +114,7 @@ void ConnectionManager::disconnect() {
         if (_sendThread.joinable()) {
             _sendThread.join();
         }
-        
+
         disconnectSocket();
         notifyConnection(false);
     }
@@ -298,8 +310,10 @@ bool ConnectionManager::connectTCP() {
 }
 
 bool ConnectionManager::connectSerial() {
+    // NOTE: For React Native, this runs on Android (via USB OTG) or iOS (Lightning/USB-C)
+    // Windows code path is only for testing/development on Windows desktop
 #ifdef _WIN32
-    // Windows: Use CreateFile API
+    // Windows: Use CreateFile API (for development/testing only)
     std::string portName = "\\\\.\\" + _address; // e.g., "\\\\.\\COM3"
     
     HANDLE hSerial = CreateFileA(
@@ -359,9 +373,11 @@ bool ConnectionManager::connectSerial() {
     _socketFd = (int)(intptr_t)hSerial;
     std::cout << "Serial port " << _address << " opened at " << _baudRate << " baud" << std::endl;
     return true;
-    
+
 #else
-    // Linux/macOS: Use termios
+    // Linux/macOS/Android/iOS: Use POSIX termios (primary path for React Native)
+    // On Android: Access USB serial via /dev/ttyUSB0, /dev/ttyACM0 (USB OTG)
+    // On iOS: Access MFi-certified serial accessories via External Accessory Framework
     _socketFd = open(_address.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     
     if (_socketFd == -1) {
@@ -479,49 +495,142 @@ void ConnectionManager::receiveThreadFunction() {
         else if (_connectionType == ConnectionType::TCP) {
             // TCP: use recv (connection-oriented)
             bytesReceived = recv(_socketFd, (char*)buffer, sizeof(buffer), 0);
-            
+
             // Check for connection closed
             if (bytesReceived == 0) {
                 std::cerr << "TCP connection closed by remote" << std::endl;
+
+                // Mark as disconnected
+                bool wasConnected = _connected.load();
+                _connected = false;
+                _shouldRun = false;
+
                 notifyConnection(false);
+
+                // Trigger auto-reconnect if enabled and was previously connected
+                if (wasConnected && _autoReconnectEnabled.load() && !_isReconnecting.load()) {
+                    std::cout << "Connection lost - starting auto-reconnect..." << std::endl;
+                    startReconnect();
+                }
+
                 break;
             }
         }
         else if (_connectionType == ConnectionType::SERIAL) {
             // Serial: platform-specific read
+            // NOTE: For React Native, this runs on Android (Linux) or iOS (Darwin/macOS)
+            // Windows code path (#ifdef _WIN32) is only for testing/development on Windows
 #ifdef _WIN32
+            // Windows serial port (for development/testing only - not used in React Native apps)
             HANDLE hSerial = (HANDLE)(intptr_t)_socketFd;
             DWORD dwBytesRead = 0;
-            
+
             if (ReadFile(hSerial, buffer, sizeof(buffer), &dwBytesRead, NULL)) {
                 bytesReceived = (int)dwBytesRead;
             } else {
                 DWORD error = GetLastError();
+
+                // Check for fatal serial errors (device disconnected, cable unplugged, etc.)
+                if (error == ERROR_BAD_COMMAND || error == ERROR_DEVICE_NOT_AVAILABLE ||
+                    error == ERROR_GEN_FAILURE || error == ERROR_NOT_READY ||
+                    error == ERROR_OPERATION_ABORTED || error == ERROR_SEM_TIMEOUT) {
+
+                    std::cerr << "Fatal serial error: " << error << " - Device disconnected" << std::endl;
+
+                    bool wasConnected = _connected.load();
+                    _connected = false;
+                    _shouldRun = false;
+                    notifyConnection(false);
+
+                    // Trigger auto-reconnect if was previously connected
+                    if (wasConnected && _autoReconnectEnabled.load() && !_isReconnecting.load()) {
+                        std::cout << "Serial device disconnected - starting auto-reconnect..." << std::endl;
+                        startReconnect();
+                    }
+                    break;
+                }
+
+                // Non-fatal errors (ERROR_IO_PENDING, ERROR_SUCCESS, etc.)
                 if (error != ERROR_IO_PENDING && error != ERROR_SUCCESS) {
-                    std::cerr << "Serial read error: " << error << std::endl;
+                    // Don't spam logs for common non-fatal errors
                 }
                 bytesReceived = -1;
             }
 #else
+            // Linux/macOS/Android/iOS serial port (primary path for React Native)
             bytesReceived = read(_socketFd, buffer, sizeof(buffer));
+
+            // Check for fatal serial errors (device disconnected, USB cable unplugged, etc.)
+            if (bytesReceived < 0) {
+                // ENXIO: No such device or address (device removed)
+                // ENODEV: No such device (device not available)
+                // EIO: Input/output error (hardware error, device disconnected)
+                if (errno == ENXIO || errno == ENODEV || errno == EIO) {
+                    std::cerr << "Fatal serial error: " << strerror(errno) << " - Device disconnected" << std::endl;
+
+                    bool wasConnected = _connected.load();
+                    _connected = false;
+                    _shouldRun = false;
+                    notifyConnection(false);
+
+                    // Trigger auto-reconnect if was previously connected
+                    if (wasConnected && _autoReconnectEnabled.load() && !_isReconnecting.load()) {
+                        std::cout << "Serial device disconnected - starting auto-reconnect..." << std::endl;
+                        startReconnect();
+                    }
+                    break;
+                }
+            }
 #endif
         }
         
         if (bytesReceived > 0) {
             parseReceivedData(buffer, bytesReceived);
         } else if (bytesReceived < 0) {
-            // Error occurred
+            // Error occurred - check if it's a fatal error
+            bool fatalError = false;
+
 #ifdef _WIN32
             int error = WSAGetLastError();
+            // Non-fatal: WSAEWOULDBLOCK (non-blocking socket would block)
+            // Fatal: WSAECONNRESET, WSAENOTCONN, WSAENETDOWN, WSAENETRESET, etc.
             if (error != WSAEWOULDBLOCK) {
-                // Don't spam logs for non-blocking would-block
+                if (error == WSAECONNRESET || error == WSAENOTCONN ||
+                    error == WSAENETDOWN || error == WSAENETRESET ||
+                    error == WSAECONNABORTED) {
+                    std::cerr << "Fatal socket error: " << error << std::endl;
+                    fatalError = true;
+                }
             }
 #else
+            // Non-fatal: EAGAIN, EWOULDBLOCK (non-blocking would block)
+            // Fatal: ECONNRESET, ENOTCONN, ENETDOWN, ENETRESET, EPIPE, etc.
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                // Don't spam logs for non-blocking would-block
+                if (errno == ECONNRESET || errno == ENOTCONN ||
+                    errno == ENETDOWN || errno == ENETRESET ||
+                    errno == EPIPE || errno == ECONNABORTED) {
+                    std::cerr << "Fatal socket error: " << strerror(errno) << std::endl;
+                    fatalError = true;
+                }
             }
 #endif
-            // Sleep briefly on error
+
+            // Handle fatal errors for TCP and Serial
+            if (fatalError) {
+                bool wasConnected = _connected.load();
+                _connected = false;
+                _shouldRun = false;
+                notifyConnection(false);
+
+                // Trigger auto-reconnect if was previously connected
+                if (wasConnected && _autoReconnectEnabled.load() && !_isReconnecting.load()) {
+                    std::cout << "Connection error - starting auto-reconnect..." << std::endl;
+                    startReconnect();
+                }
+                break;
+            }
+
+            // Sleep briefly on non-fatal error
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
             // No data, sleep briefly
@@ -667,6 +776,123 @@ bool ConnectionManager::sendData(const uint8_t* data, size_t length) {
     }
     
     return false;
+}
+
+// ============================================================================
+// Auto-Reconnect (based on QGC LinkManager)
+// ============================================================================
+
+void ConnectionManager::setAutoReconnect(bool enabled, int maxAttempts, int delayMs) {
+    _autoReconnectEnabled = enabled;
+    _maxReconnectAttempts = maxAttempts;
+    _reconnectDelayMs = delayMs;
+
+    if (!enabled) {
+        stopReconnect();
+    }
+}
+
+bool ConnectionManager::isAutoReconnectEnabled() const {
+    return _autoReconnectEnabled.load();
+}
+
+int ConnectionManager::getReconnectAttempts() const {
+    return _reconnectAttempts.load();
+}
+
+void ConnectionManager::startReconnect() {
+    if (_isReconnecting.load()) {
+        return; // Already reconnecting
+    }
+
+    _isReconnecting = true;
+    _reconnectAttempts = 0;
+
+    // Start reconnect thread
+    if (_reconnectThread.joinable()) {
+        _reconnectThread.join();
+    }
+    _reconnectThread = std::thread(&ConnectionManager::reconnectThreadFunction, this);
+}
+
+void ConnectionManager::stopReconnect() {
+    _isReconnecting = false;
+    if (_reconnectThread.joinable()) {
+        _reconnectThread.join();
+    }
+}
+
+void ConnectionManager::reconnectThreadFunction() {
+    std::cout << "Auto-reconnect thread started" << std::endl;
+
+    while (_isReconnecting.load() && _autoReconnectEnabled.load()) {
+        // Check if max attempts reached (0 = infinite)
+        int maxAttempts = _maxReconnectAttempts.load();
+        if (maxAttempts > 0 && _reconnectAttempts >= maxAttempts) {
+            std::cerr << "Max reconnect attempts reached (" << maxAttempts << ")" << std::endl;
+            _isReconnecting = false;
+            break;
+        }
+
+        _reconnectAttempts++;
+
+        // Calculate delay with exponential backoff (5s → 10s → 20s → 40s → max 60s)
+        int baseDelay = _reconnectDelayMs.load();
+        int attempt = _reconnectAttempts.load();
+        int delay = baseDelay * (1 << (attempt - 1)); // Exponential: 5s, 10s, 20s, 40s...
+        if (delay > 60000) delay = 60000; // Cap at 60 seconds
+
+        std::cout << "Reconnect attempt " << attempt;
+        if (maxAttempts > 0) {
+            std::cout << "/" << maxAttempts;
+        }
+        std::cout << " in " << (delay / 1000) << "s..." << std::endl;
+
+        // Wait before retry
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+
+        if (!_isReconnecting.load()) {
+            break; // Stopped during sleep
+        }
+
+        // Attempt reconnect (disconnect first to clean up)
+        // Use disconnectInternal() to avoid deadlock (don't stop reconnect thread from itself)
+        disconnectInternal();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+        bool success = false;
+        switch (_connectionType) {
+            case ConnectionType::UDP:
+                success = connectUDP();
+                break;
+            case ConnectionType::TCP:
+                success = connectTCP();
+                break;
+            case ConnectionType::SERIAL:
+                success = connectSerial();
+                break;
+        }
+
+        if (success) {
+            _connected = true;
+            _shouldRun = true;
+
+            // Restart threads
+            _receiveThread = std::thread(&ConnectionManager::receiveThreadFunction, this);
+            _sendThread = std::thread(&ConnectionManager::sendThreadFunction, this);
+
+            notifyConnection(true);
+
+            std::cout << "Reconnect successful!" << std::endl;
+            _isReconnecting = false;
+            _reconnectAttempts = 0; // Reset counter
+            break;
+        } else {
+            std::cerr << "Reconnect failed, will retry..." << std::endl;
+        }
+    }
+
+    std::cout << "Auto-reconnect thread stopped" << std::endl;
 }
 
 } // namespace margelo::nitro::mavlink
